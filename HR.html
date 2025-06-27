@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <!-- การตั้งค่าพื้นฐานของเอกสาร HTML -->
+    <meta charset="UTF-8"> <!-- กำหนดชุดอักขระเป็น UTF-8 เพื่อให้รองรับการแสดงผลภาษาไทยและสัญลักษณ์ต่างๆ ได้อย่างถูกต้อง -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- ตั้งค่า Viewport เพื่อให้หน้าเว็บปรับขนาดตามความกว้างของหน้าจออุปกรณ์ (Responsive Design) ทำให้แสดงผลได้ดีทั้งบนเดสก์ท็อปและมือถือ -->
+    <title>แดชบอร์ดวิเคราะห์ข้อมูลพนักงานและ Turnover</title> <!-- ชื่อของหน้าเว็บที่จะแสดงบนแท็บของเบราว์เซอร์ -->
+
+    <!-- CSS Libraries: เรียกใช้ไฟล์ CSS จากภายนอกเพื่อตกแต่งหน้าเว็บ -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap: Framework สำหรับการออกแบบหน้าเว็บ ช่วยในเรื่อง Layout, Grid System, และ Component สำเร็จรูป -->
+    <link rel="preconnect" href="https://fonts.googleapis.com"> <!-- Preconnect: เป็นการบอกเบราว์เซอร์ให้เริ่มสร้างการเชื่อมต่อไปยังเซิร์ฟเวอร์ฟอนต์ล่วงหน้า เพื่อลดเวลาในการโหลดฟอนต์ -->
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet"> <!-- Google Fonts: เรียกใช้ฟอนต์ 'Sarabun' สำหรับภาษาไทย -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"> <!-- Bootstrap Icons: ชุดไอคอนสำเร็จรูปจาก Bootstrap -->
+    
+    <!-- Custom Styles: สไตล์ CSS ที่เขียนขึ้นเองเพื่อปรับแต่งหน้าตาของเว็บเพิ่มเติมจากค่าเริ่มต้นของ Bootstrap -->
+    <style>
+        /* ตั้งค่าพื้นฐานสำหรับทั้งหน้าเว็บ */
+        body {
+            background: #f0f2f5; /* กำหนดสีพื้นหลังเป็นสีเทาอ่อน ทำให้ดูสบายตา */
+            font-family: 'Sarabun', sans-serif; /* กำหนดฟอนต์หลักของทั้งหน้าเว็บเป็น 'Sarabun' */
+        }
+        /* สไตล์สำหรับกล่องอัปโหลดไฟล์ */
+        .upload-container {
+            max-width: 700px; /* กำหนดความกว้างสูงสุดของกล่อง เพื่อไม่ให้กว้างเกินไปบนจอใหญ่ */
+            margin: 5rem auto; /* จัดให้อยู่กึ่งกลางหน้าจอแนวนอน และเว้นระยะห่างจากด้านบน 5rem */
+            padding: 2.5rem; /* กำหนดระยะห่างภายในกล่อง (padding) */
+            background-color: #ffffff; /* พื้นหลังสีขาว */
+            border-radius: 1.5rem; /* ทำให้ขอบของกล่องมน */
+            box-shadow: 0 10px 40px rgba(0,0,0,0.08); /* เพิ่มเงาจางๆ ให้กล่องดูมีมิติและลอยขึ้นมาจากพื้นหลัง */
+            text-align: center; /* จัดให้ข้อความและ element ภายในอยู่กึ่งกลาง */
+        }
+        /* ซ่อนแดชบอร์ดในตอนเริ่มต้น */
+        #dashboard-container { display: none; } /* ซ่อนส่วนแดชบอร์ดไว้ก่อน จนกว่าจะอัปโหลดไฟล์สำเร็จ */
+        
+        /* สไตล์ของการ์ด (Card) ที่ใช้แสดงผลข้อมูลและกราฟ */
+        .card {
+            border: none; /* เอาเส้นขอบของการ์ดออก */
+            box-shadow: 0 8px 16px rgba(0,0,0,0.05); /* เพิ่มเงาให้การ์ด */
+            border-radius: 20px; /* ทำให้ขอบมน */
+            height: 100%; /* ทำให้การ์ดที่อยู่ในแถว (row) เดียวกันมีความสูงเท่ากันทั้งหมด */
+        }
+        /* สไตล์ของหัวข้อการ์ด (Card Header) */
+        .card-header {
+            background: linear-gradient(to right, #4a69bd, #6a89cc); /* ไล่ระดับสีพื้นหลังเป็นสีน้ำเงิน */
+            color: white; /* ตัวอักษรสีขาว */
+            font-weight: bold; /* ตัวหนา */
+            border-top-left-radius: 20px; /* ทำให้ขอบบนซ้ายมนให้เข้ากับ card */
+            border-top-right-radius: 20px; /* ทำให้ขอบบนขวามนให้เข้ากับ card */
+            border-bottom: none; /* เอาเส้นขอบล่างออก */
+            padding: 1rem 1.5rem; /* ระยะห่างภายใน */
+        }
+        /* กล่องสำหรับบรรจุกราฟ */
+        .chart-container {
+            position: relative; /* กำหนดเป็น relative เพื่อให้ canvas ที่อยู่ข้างในอ้างอิงตำแหน่งได้ */
+            height: 350px; /* กำหนดความสูงของพื้นที่แสดงกราฟ */
+            width: 100%; /* กำหนดความกว้างเต็มพื้นที่ของ parent (card-body) */
+        }
+        /* กล่องสำหรับบรรจุกราฟ Staffing ที่ต้องการความสูงมากกว่า */
+        .staffing-chart-container {
+            position: relative;
+            height: 450px; /* กำหนดความสูงมากกว่าปกติสำหรับกราฟที่ข้อมูลเยอะ */
+            width: 100%;
+        }
+        /* ข้อความแจ้งเตือนให้เลือกฟิลเตอร์ */
+        .filter-prompt {
+            min-height: 450px; /* กำหนดความสูงขั้นต่ำเพื่อให้ Layout ดูไม่โล่งเกินไปตอนที่ยังไม่มีข้อมูล */
+        }
+        /* กล่องสำหรับตาราง Service Charge */
+        .sc-table-container {
+            max-height: 400px; /* กำหนดความสูงสูงสุด */
+            overflow-y: auto; /* ถ้าเนื้อหาของตารางเกินความสูงที่กำหนด ให้แสดง scrollbar แนวตั้ง */
+        }
+        /* ทำให้หัวตาราง Service Charge ตรึงอยู่กับที่เมื่อเลื่อน */
+        .sc-table th {
+            position: sticky; /* ตรึงตำแหน่งไว้ */
+            top: 0; /* ตรึงไว้ที่ด้านบนสุดของ container */
+            background-color: #f8f9fa; /* กำหนดสีพื้นหลังเพื่อให้ทับเนื้อหาที่เลื่อนผ่าน */
+        }
+        /* สไตล์ของช่องข้อมูลในตาราง Service Charge */
+        .sc-table td {
+            color: white; /* สีตัวอักษร */
+            font-weight: bold; /* ตัวหนา */
+            text-align: center; /* จัดกึ่งกลาง */
+            vertical-align: middle; /* จัดให้อยู่กึ่งกลางแนวตั้ง */
+        }
+        /* สไตล์เฉพาะคอลัมน์แรก (เดือน) ของตาราง Service Charge */
+        .sc-table tr td:first-child {
+            color: #212529; /* เปลี่ยนสีตัวอักษรเป็นสีดำเพื่อให้อ่านง่าย */
+            background-color: #f8f9fa; /* พื้นหลังสีเทาอ่อนเหมือนหัวตาราง */
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Container หลักของหน้าเว็บ ใช้ container-fluid เพื่อให้ความกว้างเต็มหน้าจอ -->
+    <div class="container-fluid p-4">
+        
+        <!-- Upload Section: ส่วนสำหรับอัปโหลดไฟล์ Excel -->
+        <div id="upload-section" class="upload-container">
+            <h1 class="mb-3">HR Analysis</h1>
+            <p class="text-muted">กรุณาเลือกไฟล์ Excel เพื่อเริ่มการวิเคราะห์</p>
+            <hr class="my-4">
+            <!-- Input สำหรับเลือกไฟล์, จำกัดให้รับเฉพาะไฟล์ .xlsx และ .xls -->
+            <input type="file" id="excel-file-input" class="form-control form-control-lg" accept=".xlsx, .xls">
+            <!-- Spinner (ตัวหมุนๆ) แสดงตอนกำลังโหลดและประมวลผลไฟล์, ถูกซ่อนไว้ในตอนแรก -->
+            <div id="loading-spinner" class="text-center mt-4" style="display: none;">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">กำลังประมวลผลไฟล์...</p>
+            </div>
+            <!-- ส่วนแสดงข้อความผิดพลาด หากการอัปโหลดหรือประมวลผลล้มเหลว -->
+            <div id="upload-error" class="text-danger mt-3"></div>
+        </div>
+
+        <!-- Dashboard Section: ส่วนแสดงผลแดชบอร์ดทั้งหมด, ถูกซ่อนไว้ในตอนแรก -->
+        <div id="dashboard-container">
+            <!-- ส่วนหัวของแดชบอร์ด ประกอบด้วยชื่อและปุ่ม Reset -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 id="dashboard-title" class="mb-0">แดชบอร์ดวิเคราะห์ข้อมูล</h1>
+                <button id="reset-button" class="btn btn-secondary"><i class="bi bi-arrow-clockwise me-2"></i>เลือกไฟล์ใหม่</button>
+            </div>
+            <!-- เนื้อหาของแดชบอร์ดจะถูกสร้างและใส่เข้ามาใน div นี้ด้วย JavaScript -->
+            <div id="dashboard-content"></div> 
+        </div>
+    </div>
+
+    <!-- JS Libraries: เรียกใช้ไฟล์ JavaScript จากภายนอก -->
+    <script src="https://code.jquery.com/jquery-3.7.1.js"></script> <!-- jQuery: Library ยอดนิยมที่ช่วยให้การจัดการ DOM, Events, และ Ajax ง่ายขึ้น -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script> <!-- JavaScript ของ Bootstrap สำหรับการทำงานของ Component บางอย่างเช่น Dropdown, Modal -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- Chart.js: Library หลักสำหรับสร้างกราฟประเภทต่างๆ -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script> <!-- Plugin สำหรับ Chart.js เพื่อแสดงตัวเลข/ข้อมูลบนตัวกราฟ (Datalabels) -->
+    <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script> <!-- SheetJS (xlsx): Library สำหรับการอ่านและเขียนไฟล์ Excel ในฝั่ง Client (เบราว์เซอร์) -->
+
+    <script>
+    // ใช้ $(function() { ... }) ซึ่งเป็น Shorthand ของ jQuery สำหรับ $(document).ready()
+    // เพื่อให้แน่ใจว่าโค้ด JavaScript ทั้งหมดในส่วนนี้จะเริ่มทำงานหลังจากที่หน้าเว็บ (DOM) โหลดเสร็จสมบูรณ์แล้ว
+    $(function() {
+        // --- INITIAL SETUP: การตั้งค่าเริ่มต้น ---
+        // ลงทะเบียน Plugin Datalabels กับ Chart.js เพื่อให้สามารถใช้งานได้ในทุกกราฟ
+        // หากไม่มีบรรทัดนี้ การตั้งค่า datalabels ใน options ของกราฟจะไม่มีผล
+        Chart.register(ChartDataLabels);
+        // ตั้งค่าฟอนต์เริ่มต้นสำหรับกราฟทั้งหมดเป็น 'Sarabun' เพื่อให้สอดคล้องกับทั้งหน้าเว็บ
+        Chart.defaults.font.family = "'Sarabun', sans-serif";
+        // ตั้งค่าสีและรูปแบบของตัวเลขบนกราฟ (Data Labels) ทั้งหมดเป็นค่าเริ่มต้น
+        Chart.defaults.plugins.datalabels.color = '#333';
+        Chart.defaults.plugins.datalabels.font.weight = 'bold';
+
+        // --- GLOBAL VARIABLES: ตัวแปรที่ใช้ร่วมกันในหลายฟังก์ชัน (Global Scope) ---
+        let chartInstances = {}; // Object สำหรับเก็บ instance ของกราฟที่สร้างขึ้นทั้งหมด key คือ ID ของ canvas, value คือ object ของ Chart
+                                 // ใช้เพื่อการทำลาย (destroy) กราฟเก่าทิ้งก่อนสร้างใหม่ ป้องกัน memory leak และการแสดงผลที่ผิดพลาด
+        let allParsedData = [];  // Array สำหรับเก็บข้อมูล Staffing ทั้งหมดที่อ่านและแปลงจากไฟล์ Excel
+        let allTurnoverData = []; // Array สำหรับเก็บข้อมูล Turnover ทั้งหมด
+        let allServiceChargeData = []; // Array สำหรับเก็บข้อมูล Service Charge ทั้งหมด
+
+        // --- CONSTANTS: ค่าคงที่ที่ไม่เปลี่ยนแปลง ---
+        // ใช้เพื่อการตรวจสอบและอ้างอิงข้อมูลที่ถูกต้องในไฟล์ Excel
+        const HOTEL_CODES = ['CHRB', 'CRRB', 'CRST', 'ES', 'CGB', 'MHSC', 'MHRB', 'MMSB', 'SDAO', 'LKYT', 'CHRY', 'CNSJ', 'CHH'];
+        const EMPLOYMENT_TYPES = ['FT', 'CT', 'OS'];
+        const STAFFING_DEPARTMENTS = ['FO', 'HKP', 'Laundry', 'Fitness', 'F&B Service', 'Kitchen', 'A&G', 'Finance', 'Procurement', 'IT', 'HR', 'Security', 'Sales', 'Engineering', 'MarComm', 'E-Commerce', 'Commercial', 'Service Quality Assurance', 'Golf Operations', 'Golf Maintenance', 'Test'];
+        // แปลง Array ของแผนกเป็น Set และทำเป็นตัวพิมพ์ใหญ่ทั้งหมด เพื่อให้การค้นหา (check) ทำได้รวดเร็วกว่าการใช้ Array.includes() (Complexity O(1) vs O(n))
+        const STAFFING_DEPARTMENT_SET = new Set(STAFFING_DEPARTMENTS.map(dept => dept.toUpperCase())); 
+        // ชุดสีสำหรับใช้ในกราฟ เพื่อให้กราฟมีสีสันที่แตกต่างกันและดูสวยงาม
+        const CHART_COLORS = ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#858796', '#5a5c69', '#fd7e14', '#6610f2', '#e83e8c', '#a0c4ff', '#9bf6ff', '#ffc6ff'];
+
+        // --- EVENT HANDLERS: การดักจับเหตุการณ์จากผู้ใช้ ---
+        $('#reset-button').on('click', resetToUpload); // เมื่อปุ่ม "เลือกไฟล์ใหม่" (id=reset-button) ถูกคลิก ให้เรียกฟังก์ชัน resetToUpload
+        $('#excel-file-input').on('change', handleFileAnalysis); // เมื่อมีการเปลี่ยนแปลงที่ input เลือกไฟล์ (id=excel-file-input) เช่น ผู้ใช้เลือกไฟล์ใหม่ ให้เรียกฟังก์ชัน handleFileAnalysis
+
+        /**
+         * @name handleFileAnalysis
+         * @description ฟังก์ชันหลักในการจัดการไฟล์ Excel ที่ผู้ใช้อัปโหลด เริ่มตั้งแต่การอ่านไฟล์, แปลงข้อมูล, แสดงผลแดชบอร์ด, และจัดการข้อผิดพลาด
+         * @param {Event} event - ข้อมูลเหตุการณ์ (event object) ที่เกิดขึ้น ซึ่งในที่นี้คือการเลือกไฟล์ จะมีข้อมูลไฟล์อยู่ใน event.target.files
+         */
+        async function handleFileAnalysis(event) {
+            const file = event.target.files[0]; // ดึงไฟล์ที่ผู้ใช้เลือก (ไฟล์แรก)
+            if (!file) return; // ถ้าไม่ได้เลือกไฟล์ (เช่น กด cancel) ให้จบการทำงานของฟังก์ชันทันที
+            
+            // แสดง Spinner และล้างข้อความ error เก่า เพื่อให้ผู้ใช้รู้ว่าระบบกำลังทำงาน
+            $('#loading-spinner').show();
+            $('#upload-error').text('');
+            
+            // ใช้ try...catch...finally เพื่อจัดการกระบวนการที่อาจเกิดข้อผิดพลาดได้
+            try {
+                // await: รอให้การอ่านไฟล์เสร็จสิ้นก่อนจะไปทำขั้นตอนต่อไป
+                const data = await file.arrayBuffer(); // อ่านข้อมูลไฟล์ในรูปแบบ ArrayBuffer ซึ่งเป็นรูปแบบที่ library xlsx ต้องการ
+                const workbook = XLSX.read(data, { type: 'array', cellDates: true }); // ใช้ library xlsx เพื่ออ่านข้อมูลจาก ArrayBuffer และพยายามแปลงข้อมูลวันที่ใน cell ให้เป็น Date object ของ JavaScript
+
+                // ล้างข้อมูลเก่าในตัวแปร global ก่อนเริ่มการประมวลผลไฟล์ใหม่ เพื่อไม่ให้ข้อมูลเก่าปนกับข้อมูลใหม่
+                allParsedData = [];
+                allTurnoverData = [];
+                allServiceChargeData = [];
+
+                // 1. ประมวลผลข้อมูล Staffing (สมมติว่าอยู่ชีตแรกสุด)
+                const staffingSheetName = workbook.SheetNames[0]; // ดึงชื่อชีตแรก
+                if (staffingSheetName) {
+                    try { // ใส่ try..catch ซ้อนอีกชั้น เพื่อให้หากชีตใดชีตหนึ่งมีปัญหา โปรแกรมยังสามารถทำงานกับชีตอื่นต่อไปได้
+                        const worksheet = workbook.Sheets[staffingSheetName];
+                        // แปลงข้อมูลในชีตเป็น Array 2 มิติ (Array of arrays)
+                        const dataAsArray = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null, raw: false });
+                        allParsedData = parseMultiLevelHeaderData(dataAsArray); // ส่งไปให้ฟังก์ชันเฉพาะทางเพื่อแปลงข้อมูล
+                    } catch (e) { console.warn("Could not parse staffing data:", e.message); } // แสดงคำเตือนใน console แต่ไม่หยุดการทำงาน
+                }
+
+                // 2. ประมวลผลข้อมูล Turnover จากชีตชื่อ "Turnover" (ค้นหาแบบไม่สนตัวพิมพ์เล็ก/ใหญ่ และช่องว่าง)
+                const turnoverSheetName = workbook.SheetNames.find(name => name.toLowerCase().trim() === 'turnover');
+                if (turnoverSheetName) {
+                    try {
+                        const worksheet = workbook.Sheets[turnoverSheetName];
+                        const dataAsArray = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null, raw: false });
+                        allTurnoverData = parseTurnoverData(dataAsArray);
+                    } catch (e) { console.warn("Could not parse Turnover sheet:", e.message); }
+                }
+                
+                // 3. ประมวลผลข้อมูล Service Charge จากชีตชื่อ "ServiceCharge"
+                const serviceChargeSheetName = workbook.SheetNames.find(name => name.toLowerCase().trim().replace(/ /g,'') === 'servicecharge');
+                if (serviceChargeSheetName) {
+                    try {
+                        const worksheet = workbook.Sheets[serviceChargeSheetName];
+                        const dataAsArray = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null, raw: false });
+                        allServiceChargeData = parseServiceChargeData(dataAsArray);
+                    } catch (e) { console.warn("Could not parse Service Charge sheet:", e.message); }
+                }
+
+                // ตรวจสอบว่ามีข้อมูลอย่างน้อยหนึ่งประเภทที่อ่านได้สำเร็จหรือไม่
+                if (allParsedData.length === 0 && allTurnoverData.length === 0 && allServiceChargeData.length === 0) {
+                    // ถ้าไม่มีข้อมูลเลย ให้โยน Error เพื่อให้ catch ด้านนอกจัดการ
+                    throw new Error("ไม่พบข้อมูลที่สามารถนำมาวิเคราะห์ได้ในไฟล์ (Staffing, Turnover, หรือ Service Charge)");
+                }
+
+                // สลับหน้าจอจาก Upload ไปเป็น Dashboard
+                $('#upload-section').hide();
+                $('#dashboard-container').show();
+                renderDashboard(); // เรียกฟังก์ชันเพื่อสร้างและแสดงผลแดชบอร์ด
+
+            } catch(error) {
+                // หากเกิด Error ใน try block ข้างบน
+                console.error("Error during analysis:", error); // แสดง error ใน console เพื่อการดีบัก
+                $('#upload-error').html(`<p class="text-danger">${error.message}</p>`); // แสดงข้อความ error ให้ผู้ใช้เห็นบนหน้าจอ
+            } finally {
+                // finally block จะทำงานเสมอ ไม่ว่า try จะสำเร็จหรือล้มเหลว (เกิด catch)
+                // ซ่อน Spinner เมื่อกระบวนการเสร็จสิ้น
+                $('#loading-spinner').hide();
+            }
+        }
+        
+        // --- DATA PARSING FUNCTIONS: ฟังก์ชันสำหรับแปลงข้อมูลจาก Excel ให้อยู่ในรูปแบบที่ใช้งานได้ ---
+
+        /**
+         * @name parseMultiLevelHeaderData
+         * @description แปลงข้อมูลจากชีต Staffing ที่มีโครงสร้าง Header ซับซ้อน (หลายชั้น: โรงแรม, ประเภทพนักงาน, เดือน) ให้อยู่ในรูปแบบ Flat Array of Objects ที่ใช้งานง่าย
+         * @param {Array<Array<any>>} sheetData - ข้อมูลดิบจากชีต Excel ในรูปแบบ Array สองมิติ
+         * @returns {Array<Object>} - ข้อมูลที่แปลงแล้ว เช่น [{hotel: 'CHRB', type: 'FT', period: 'Jan-24', department: 'FO', value: 10}, ...]
+         */
+        function parseMultiLevelHeaderData(sheetData) {
+            const structuredData = [];
+            // หาตำแหน่ง (index) ของแถวที่เป็น Header แต่ละประเภท
+            let hotelRowIndex = -1, typeRowIndex = -1, periodRowIndex = -1;
+            const upperHotelCodes = HOTEL_CODES.map(c => c.toUpperCase()); // เตรียมข้อมูลสำหรับเปรียบเทียบ
+            // วนลูปหาใน 20 แถวแรกเพื่อประสิทธิภาพ และป้องกันการวนทั้งไฟล์โดยไม่จำเป็น
+            for(let i = 0; i < 20 && i < sheetData.length; i++) {
+                const row = sheetData[i] || [];
+                // ตรวจสอบว่าในแถวมี cell ใดที่มีค่าตรงกับรายชื่อโรงแรมหรือไม่
+                if (hotelRowIndex === -1 && row.some(cell => upperHotelCodes.includes(String(cell || '').trim().toUpperCase()))) hotelRowIndex = i;
+                // ตรวจสอบประเภทพนักงาน
+                if (typeRowIndex === -1 && row.some(cell => EMPLOYMENT_TYPES.includes(String(cell || '').trim().toUpperCase()))) typeRowIndex = i;
+                // ตรวจสอบเดือน (เช็คว่าเป็น Date Object หรือมีรูปแบบ 'XXX-YY')
+                if (periodRowIndex === -1 && row.some(cell => cell instanceof Date || /^[A-Za-z]{3}-\d{2}$/.test(String(cell || '')))) periodRowIndex = i;
+            }
+            // ถ้าหา Header หลักไม่ครบ ให้โยน Error
+            if(hotelRowIndex === -1 || typeRowIndex === -1 || periodRowIndex === -1) throw new Error("Staffing: ไม่สามารถหาแถว Header (โรงแรม, ประเภท, หรือเดือน) ที่ต้องการได้");
+            
+            const columnContextMap = new Map(); // ใช้ Map เพื่อเก็บ "บริบท" ของแต่ละคอลัมน์ (โรงแรม, ประเภท, เดือน)
+            const hotelRow = sheetData[hotelRowIndex], typeRow = sheetData[typeRowIndex], periodRow = sheetData[periodRowIndex];
+            const maxCols = Math.max((hotelRow || []).length, (typeRow || []).length, (periodRow || []).length);
+            
+            // ฟังก์ชันช่วยสำหรับหาค่าใน Header ที่ถูกต้อง (จัดการกรณี Merged Cells ใน Excel)
+            // Excel จะใส่ค่าไว้ใน cell แรกของกลุ่มที่ถูก merge เท่านั้น cell ที่เหลือจะเป็นค่าว่าง
+            const findLastValidValue = (row, colIndex, validSet) => {
+                for (let k = colIndex; k >= 0; k--) { // วนย้อนหลัง
+                    const cellValue = String((row || [])[k] || '').trim().toUpperCase();
+                    const foundValue = validSet.find(v => v.toUpperCase() === cellValue);
+                    if (foundValue) return foundValue; // เจอค่าที่ถูกต้องแล้ว return ทันที
+                }
+                return null;
+            };
+
+            // สร้าง Map ของบริบท (โรงแรม, ประเภท, เดือน) สำหรับแต่ละคอลัมน์ข้อมูล
+            for (let j = 1; j < maxCols; j++) {
+                const currentHotel = findLastValidValue(hotelRow, j, HOTEL_CODES);
+                const currentType = findLastValidValue(typeRow, j, EMPLOYMENT_TYPES);
+                let periodCell = periodRow[j];
+                // จัดรูปแบบของเดือนให้เป็น 'Mon-YY' เสมอ
+                let formattedPeriod = (periodCell instanceof Date) ? `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][periodCell.getMonth()]}-${String(periodCell.getFullYear()).slice(-2)}` : String(periodCell || '').trim();
+                
+                // ถ้าข้อมูลบริบทครบถ้วนและถูกต้อง ให้บันทึกลง Map
+                if (/^[A-Za-z]{3}-\d{2}$/.test(formattedPeriod) && currentHotel && currentType) {
+                    columnContextMap.set(j, { hotel: currentHotel, type: currentType, period: formattedPeriod });
+                }
+            }
+            
+            // วนลูปอ่านข้อมูลแต่ละแถว (แต่ละแผนก) และนำมารวมกับบริบทของคอลัมน์
+            for (let i = periodRowIndex + 1; i < sheetData.length; i++) {
+                const row = sheetData[i] || [];
+                const rawDeptName = String(row[0] || '').trim(); // ชื่อแผนกจะอยู่คอลัมน์แรก
+                // ตรวจสอบว่าเป็นแถวข้อมูลแผนกที่ถูกต้องหรือไม่
+                if (!rawDeptName || !STAFFING_DEPARTMENT_SET.has(rawDeptName.toUpperCase())) continue;
+                
+                // วนลูปในแต่ละคอลัมน์ที่มีข้อมูล (จาก Map ที่สร้างไว้)
+                columnContextMap.forEach((context, colIndex) => {
+                    const numericValue = parseFloat(row[colIndex]); // แปลงค่าใน cell เป็นตัวเลข
+                    if (!isNaN(numericValue) && isFinite(numericValue)) { // ตรวจสอบว่าเป็นตัวเลขที่ถูกต้อง
+                        // สร้าง Object ใหม่โดยรวมข้อมูลจากบริบท (context) และข้อมูลจากแถว (department, value)
+                        structuredData.push({ ...context, department: rawDeptName, value: numericValue });
+                    }
+                });
+            }
+            return structuredData;
+        }
+
+        /**
+         * @name parseGenericMonthlyData
+         * @description ฟังก์ชันกลางสำหรับแปลงข้อมูลรายเดือนที่มีโครงสร้างง่ายๆ (เดือนอยู่แถว, โรงแรมอยู่คอลัมน์)
+         * ใช้ได้ทั้งกับชีต Turnover และ Service Charge
+         * @param {Array<Array<any>>} sheetData - ข้อมูลดิบจากชีต
+         * @param {string} valueKey - ชื่อ key ที่จะใช้เก็บค่าข้อมูล (เช่น 'turnover' หรือ 'service_charge')
+         * @returns {Array<Object>} - ข้อมูลที่แปลงแล้ว เช่น [{hotel: 'CHRB', period: 'Jan-24', turnover: 1.5}, ...]
+         */
+        function parseGenericMonthlyData(sheetData, valueKey) {
+            const parsedData = [];
+            let headerRowIndex = -1, periodColIndex = -1;
+            const upperHotelCodes = HOTEL_CODES.map(h => h.toUpperCase());
+            const searchLimit = Math.min(15, sheetData.length); // จำกัดการค้นหาแค่ 15 แถวบน
+
+            // ค้นหาแถว Header ที่มีชื่อโรงแรม (หาแถวที่มีชื่อโรงแรมตรงกับ HOTEL_CODES มากที่สุด)
+            let bestHeaderMatch = { index: -1, count: 0 };
+            for (let i = 0; i < searchLimit; i++) {
+                const row = sheetData[i] || [];
+                const headerCount = row.filter(cell => upperHotelCodes.includes(String(cell || '').trim().toUpperCase())).length;
+                if (headerCount > 1 && headerCount > bestHeaderMatch.count) { // ต้องมีอย่างน้อย 2 โรงแรม และมากกว่าที่เคยเจอ
+                    bestHeaderMatch = { index: i, count: headerCount };
+                }
+            }
+            headerRowIndex = bestHeaderMatch.index;
+            if (headerRowIndex === -1) throw new Error(`${valueKey}: ไม่พบแถว Header โรงแรม`);
+
+            // ค้นหาคอลัมน์ที่มีข้อมูลเดือน
+            let bestPeriodMatch = { index: -1, count: 0 };
+            const monthShortNames = /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)$/i;
+            for (let j = 0; j < Math.min(10, (sheetData[headerRowIndex] || []).length); j++) {
+                let periodCount = 0;
+                for (let i = headerRowIndex + 1; i < searchLimit; i++) {
+                    const cellValue = String((sheetData[i] || [])[j] || '').trim();
+                    if (/^[A-Za-z]{3}-\d{2}$/.test(cellValue) || monthShortNames.test(cellValue)) periodCount++;
+                }
+                if (periodCount > bestPeriodMatch.count) bestPeriodMatch = { index: j, count: periodCount };
+            }
+            periodColIndex = bestPeriodMatch.index;
+            if (periodColIndex === -1) periodColIndex = 0; // ถ้าหาไม่เจอจริงๆ ให้เดาว่าเป็นคอลัมน์แรก
+
+            const headerRow = sheetData[headerRowIndex] || [];
+            // วนลูปอ่านข้อมูลทีละแถว (รายเดือน)
+            for (let i = headerRowIndex + 1; i < sheetData.length; i++) {
+                const row = sheetData[i] || [];
+                const periodCell = row[periodColIndex];
+                if (!periodCell || String(periodCell).trim().toUpperCase().includes('TOTAL')) continue; // ข้ามแถวว่าง หรือแถว Total
+                
+                // จัดการรูปแบบของเดือน (เช่น "Jan" -> "Jan-24")
+                let periodRaw = String(periodCell || '').trim();
+                let finalPeriod = '';
+                const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                if (/^[A-Za-z]{3}$/.test(periodRaw) && monthNames.some(m => m.toLowerCase() === periodRaw.toLowerCase())) {
+                    const currentYear = new Date().getFullYear().toString().slice(-2);
+                    finalPeriod = `${periodRaw.charAt(0).toUpperCase() + periodRaw.slice(1).toLowerCase()}-${currentYear}`;
+                } else if (periodCell instanceof Date) {
+                    finalPeriod = `${monthNames[periodCell.getMonth()]}-${String(periodCell.getFullYear()).slice(-2)}`;
+                } else {
+                    finalPeriod = periodRaw;
+                }
+                if (!/^[A-Za-z]{3}-\d{2}$/.test(finalPeriod)) continue; // ถ้าไม่ใช่รูปแบบที่ถูกต้องให้ข้ามไป
+
+                // วนลูปตามคอลัมน์ (รายโรงแรม) เพื่อดึงข้อมูล
+                for (let j = 0; j < headerRow.length; j++) {
+                    if (j === periodColIndex) continue; // ข้ามคอลัมน์เดือน
+                    const headerUpper = String(headerRow[j] || '').trim().toUpperCase();
+                    if (!upperHotelCodes.includes(headerUpper)) continue; // ข้ามคอลัมน์ที่ไม่ใช่โรงแรม
+                    
+                    // แปลงค่าเป็นตัวเลข, จัดการกับค่าที่เป็น % หรือมี comma
+                    const rawValue = row[j];
+                    let finalValue;
+                    if (typeof rawValue === 'number') {
+                        // กรณีข้อมูล Turnover เป็น decimal (เช่น 0.05) ให้แปลงเป็น % (5)
+                        finalValue = (valueKey === 'turnover' && rawValue < 1 && rawValue > 0) ? rawValue * 100 : rawValue;
+                    } else if (typeof rawValue === 'string' && rawValue.trim() !== '') {
+                        finalValue = parseFloat(rawValue.replace(/[%,]/g, ''));
+                    } else {
+                        finalValue = parseFloat(rawValue);
+                    }
+                    if (!isNaN(finalValue) && isFinite(finalValue)) {
+                        // สร้าง object ข้อมูลแล้ว push เข้า array
+                        parsedData.push({ hotel: headerUpper, period: finalPeriod, [valueKey]: finalValue });
+                    }
+                }
+            }
+            return parsedData;
+        }
+        // สร้างฟังก์ชันเฉพาะสำหรับ Turnover และ Service Charge โดยเรียกใช้ฟังก์ชันกลาง
+        const parseTurnoverData = (data) => parseGenericMonthlyData(data, 'turnover');
+        const parseServiceChargeData = (data) => parseGenericMonthlyData(data, 'service_charge');
+
+
+        // --- DASHBOARD RENDERING & UPDATES ---
+
+        /**
+         * @name renderDashboard
+         * @description สร้างโครงสร้าง HTML เริ่มต้นของแดชบอร์ด (เช่น ฟิลเตอร์ต่างๆ) และตั้งค่า Event Handlers สำหรับฟิลเตอร์เหล่านั้น
+         */
+        function renderDashboard() {
+            destroyAllCharts(); // ทำลายกราฟเก่าทิ้งก่อนเสมอ
+            // สร้างโครงสร้าง HTML ของแดชบอร์ดด้วย Template String
+            const content = `
+                <!-- แถวสำหรับฟิลเตอร์หลัก -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <label for="period-filter" class="form-label fw-bold">1. เลือกมุมมองข้อมูลหลัก</label>
+                                <select id="period-filter" class="form-select form-select-lg border-primary"></select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- แถวสำหรับฟิลเตอร์รอง -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <p class="form-label fw-bold">2. ฟิลเตอร์รอง (ถ้ามี)</p>
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-md-4">
+                                        <label for="hotel-filter" class="form-label">โรงแรม</label>
+                                        <select id="hotel-filter" class="form-select"></select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="type-filter" class="form-label">ประเภทพนักงาน</label>
+                                        <select id="type-filter" class="form-select"></select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <button id="clear-secondary-filters" class="btn btn-outline-secondary w-100"><i class="bi bi-x-circle me-2"></i>ล้างฟิลเตอร์</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- พื้นที่สำหรับแสดงเนื้อหาหลัก (กราฟ, ตาราง) -->
+                <div id="main-content-area"></div>`;
+
+            $('#dashboard-content').html(content); // นำ HTML ที่สร้างไปใส่ในหน้าเว็บ
+            populateFilters(); // เรียกฟังก์ชันเพื่อเติมตัวเลือกในฟิลเตอร์
+            
+            // ใช้ Delegated Events (.on() บน parent element) เพื่อให้ event handler ทำงานกับ element ที่ถูกสร้างขึ้นมาใหม่ (dynamically added) ได้
+            $('#dashboard-content').off('change').on('change', '#period-filter, #hotel-filter, #type-filter, #department-filter', updateDashboardView);
+            $('#dashboard-content').off('click').on('click', '#clear-secondary-filters', () => {
+                // เมื่อกดปุ่ม "ล้างฟิลเตอร์"
+                $('#hotel-filter, #type-filter').prop('selectedIndex', 0); // ตั้งค่าให้ dropdown กลับไปที่ตัวเลือกแรก ('All')
+                if ($('#department-filter').length) { // ตรวจสอบว่ามีฟิลเตอร์แผนกอยู่หรือไม่
+                    $('#department-filter').prop('selectedIndex', 0);
+                }
+                updateDashboardView(); // อัปเดตการแสดงผลใหม่
+            });
+            
+            updateDashboardView(); // เรียกอัปเดตครั้งแรกเพื่อแสดงผลเริ่มต้น
+        }
+        
+        /**
+         * @name populateFilters
+         * @description สร้างตัวเลือก (options) ใน Dropdown Filter ต่างๆ จากข้อมูลที่อ่านได้จากไฟล์
+         */
+        function populateFilters() {
+            // ดึงรายชื่อโรงแรม, ประเภทพนักงาน, และเดือนทั้งหมดที่ไม่ซ้ำกันจากข้อมูลที่ parse มา
+            const allHotels = [...new Set([...allParsedData.map(d => d.hotel), ...allTurnoverData.map(d => d.hotel), ...allServiceChargeData.map(d => d.hotel)])].sort();
+            const types = ['All', ...[...new Set(allParsedData.map(d => d.type))].sort()];
+            // เรียงลำดับเดือนตามวันที่
+            const staffingPeriods = [...new Set(allParsedData.map(d => d.period))].sort((a, b) => parsePeriodToDate(a) - parsePeriodToDate(b));
+            
+            // สร้าง HTML ของ options แล้วใส่เข้าไปใน select element
+            $('#hotel-filter').html(['All', ...allHotels].map(h => `<option>${h}</option>`).join(''));
+            $('#type-filter').html(types.map(t => `<option>${t}</option>`).join(''));
+            
+            // สร้างตัวเลือกสำหรับฟิลเตอร์หลัก (มุมมอง)
+            let periodOptions = `<option value="" disabled selected>--- กรุณาเลือกมุมมอง ---</option>`;
+            if (allServiceChargeData.length > 0) periodOptions += `<option value="ALL_SERVICE_CHARGE">ภาพรวม Service Charge</option>`;
+            if (allTurnoverData.length > 0) periodOptions += `<option value="ALL_TURNOVER">ภาพรวม Turnover</option>`;
+            periodOptions += staffingPeriods.map(p => `<option value="${p}">ข้อมูลประจำเดือน ${p}</option>`).join('');
+            $('#period-filter').html(periodOptions);
+        }
+
+        /**
+         * @name populateDepartmentFilter
+         * @description สร้างตัวเลือกสำหรับฟิลเตอร์แผนกโดยเฉพาะ และรักษาค่าที่เคยเลือกไว้ (ถ้ามี)
+         * @param {string} currentValue - ค่าของแผนกที่ถูกเลือกไว้ก่อนหน้านี้
+         */
+        function populateDepartmentFilter(currentValue) {
+            const departments = ['All', ...[...new Set(allParsedData.map(d => d.department))].sort()];
+            const optionsHtml = departments.map(d => `<option value="${d}" ${d === currentValue ? 'selected' : ''}>${d}</option>`).join('');
+            $('#department-filter').html(optionsHtml);
+        }
+
+        /**
+         * @name updateDashboardView
+         * @description ฟังก์ชันหลักในการควบคุมการแสดงผลของแดชบอร์ดตามฟิลเตอร์ที่ผู้ใช้เลือก จะถูกเรียกทุกครั้งที่มีการเปลี่ยนฟิลเตอร์
+         */
+        function updateDashboardView() {
+            const currentDept = $('#department-filter').val(); // เก็บค่าฟิลเตอร์แผนกที่เลือกไว้ก่อนจะล้างหน้าจอ
+            $('#main-content-area').empty(); // ล้างเนื้อหาเก่า (กราฟ, ตาราง) ทิ้งทั้งหมด
+            const selectedPeriod = $('#period-filter').val(); // ดึงค่าจากฟิลเตอร์หลัก
+
+            if (selectedPeriod) { // ถ้าผู้ใช้เลือกมุมมองแล้ว
+                // ตรวจสอบค่าที่เลือกเพื่อแสดงผลให้ถูกต้อง
+                if (selectedPeriod === 'ALL_TURNOVER') {
+                    if (allTurnoverData.length > 0) {
+                        $('#main-content-area').append(`<div id="turnover-section" class="row mt-4"></div>`);
+                        updateTurnoverSection();
+                    }
+                } else if (selectedPeriod === 'ALL_SERVICE_CHARGE') {
+                    if (allServiceChargeData.length > 0) {
+                        $('#main-content-area').append(`<div id="sc-section" class="row mt-4"></div>`);
+                        updateServiceChargeSection();
+                    }
+                } else {
+                    // กรณีเลือกดูข้อมูลรายเดือน
+                    if (allParsedData.length > 0) { // แสดงข้อมูล Staffing
+                        $('#main-content-area').append(`<div id="staffing-section"></div>`);
+                        updateStaffingCharts(currentDept); // ส่งค่าแผนกที่เคยเลือกไว้ไปใช้
+                    }
+                    if (allTurnoverData.length > 0) { // แสดงข้อมูล Turnover ของเดือนนั้นๆ
+                        $('#main-content-area').append(`<div id="turnover-section" class="row mt-4"></div>`);
+                        updateTurnoverSection();
+                    }
+                }
+            } else {
+                // ถ้ายังไม่ได้เลือกมุมมอง ให้แสดงข้อความแจ้งเตือน
+                $('#main-content-area').append(`<div id="initial-prompt" class="d-flex align-items-center justify-content-center text-muted filter-prompt"><h4><i class="bi bi-arrow-up-circle-fill me-2"></i>กรุณาเลือกมุมมองจากเมนูด้านบน</h4></div>`);
+            }
+        }
+
+        /**
+         * @name updateStaffingCharts
+         * @description อัปเดตส่วนของข้อมูลพนักงาน (Staffing) ทั้งหมด ทั้งกราฟและตาราง
+         * @param {string} currentDeptValue - ค่าแผนกที่เลือกไว้ เพื่อใช้ในการสร้างฟิลเตอร์แผนกใหม่
+         */
+        function updateStaffingCharts(currentDeptValue) {
+            // สร้างโครงสร้าง HTML สำหรับส่วน Staffing
+            const staffingHtml = `
+                <div class="row">
+                    <div class="col-lg-8 mb-4"><div class="card"><div class="card-header" id="department-chart-title"></div><div class="card-body"><div class="staffing-chart-container"><canvas id="department-chart"></canvas></div></div></div></div>
+                    <div class="col-lg-4 mb-4"><div class="card"><div class="card-header">ตารางสรุป</div><div class="card-body"><div class="table-responsive" style="max-height: 400px;"><table class="table table-striped"><thead><tr><th>แผนก</th><th>จำนวน</th></tr></thead><tbody id="summary-table-body"></tbody><tfoot class="fw-bold"><tr><td>รวม</td><td id="summary-table-total"></td></tr></tfoot></table></div></div></div></div>
+                </div>
+                <div class="row mb-4">
+                    <div class="col-md-5">
+                        <label for="department-filter" class="form-label fw-bold">กรองตามแผนก (สำหรับกราฟด้านล่าง)</label>
+                        <select id="department-filter" class="form-select"></select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-12 mb-4"><div class="card"><div class="card-header" id="monthly-chart-title"></div><div class="card-body"><div class="chart-container" style="height: 300px;"><canvas id="monthly-chart"></canvas></div></div></div></div>
+                </div>`;
+            $('#staffing-section').html(staffingHtml);
+            
+            // ดึงค่าจากฟิลเตอร์ต่างๆ
+            const selectedHotel = $('#hotel-filter').val();
+            const selectedType = $('#type-filter').val();
+            const selectedPeriod = $('#period-filter').val();
+            
+            populateDepartmentFilter(currentDeptValue); // สร้างฟิลเตอร์แผนก
+            const selectedDepartment = $('#department-filter').val(); // ดึงค่าแผนกที่เลือก
+
+            // กรองข้อมูล, คำนวณ, และสร้างกราฟสรุปตามแผนก
+            const departmentFilteredData = allParsedData.filter(d => (selectedHotel === 'All' || d.hotel === selectedHotel) && (selectedType === 'All' || d.type === selectedType) && d.period === selectedPeriod);
+            const departmentTotals = departmentFilteredData.reduce((acc, item) => { acc[item.department] = (acc[item.department] || 0) + item.value; return acc; }, {});
+            const sortedDepartments = Object.entries(departmentTotals).sort(([, a], [, b]) => b - a); // เรียงจากมากไปน้อย
+            updateDepartmentChart(sortedDepartments.map(d => d[0]), sortedDepartments.map(d => d[1]));
+            updateSummaryTable(sortedDepartments);
+
+            // กรองข้อมูล, คำนวณ, และสร้างกราฟยอดรวมพนักงานแต่ละเดือน
+            const monthlyFilteredData = allParsedData.filter(d => (selectedHotel === 'All' || d.hotel === selectedHotel) && (selectedType === 'All' || d.type === selectedType) && (selectedDepartment === 'All' || !selectedDepartment || d.department === selectedDepartment));
+            const monthlyTotals = monthlyFilteredData.reduce((acc, item) => { acc[item.period] = (acc[item.period] || 0) + item.value; return acc; }, {});
+            const sortedMonths = Object.entries(monthlyTotals).sort((a, b) => parsePeriodToDate(a[0]) - parsePeriodToDate(b[0])); // เรียงตามเดือน
+            updateMonthlyChart(sortedMonths.map(d => d[0]), sortedMonths.map(d => d[1]));
+
+            updateTitles(selectedHotel, selectedType, selectedPeriod, selectedDepartment); // อัปเดตหัวข้อของกราฟ
+        }
+
+        /**
+         * @name updateTurnoverSection
+         * @description อัปเดตส่วนของข้อมูล Turnover ทั้งหมด (ตารางและกราฟ) ตามมุมมองที่เลือก (รายเดือน หรือ ภาพรวม)
+         */
+        function updateTurnoverSection() {
+            const selectedHotel = $('#hotel-filter').val();
+            const selectedPeriod = $('#period-filter').val();
+
+            // ตรวจสอบว่าเป็นมุมมองรายเดือนหรือไม่
+            if (selectedPeriod && selectedPeriod !== 'ALL_TURNOVER' && selectedPeriod !== 'ALL_SERVICE_CHARGE') {
+                // --- มุมมองรายเดือน ---
+                const turnoverHtml = `
+                    <div class="col-lg-8 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header" id="turnover-chart-title"></div>
+                            <div class="card-body"><div class="chart-container"><canvas id="turnover-chart"></canvas></div></div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 mb-4">
+                         <div class="card h-100">
+                            <div class="card-header">ตารางสรุป Turnover</div>
+                            <div class="card-body sc-table-container">
+                                <table class="table table-striped">
+                                    <thead><tr><th>โรงแรม</th><th>Turnover Rate</th></tr></thead>
+                                    <tbody id="turnover-summary-table-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>`;
+                $('#turnover-section').html(turnoverHtml);
+
+                const periodData = allTurnoverData.filter(d => d.period === selectedPeriod);
+                let filteredData = (selectedHotel === 'All') ? periodData : periodData.filter(d => d.hotel === selectedHotel);
+                filteredData.sort((a, b) => b.turnover - a.turnover);
+
+                // อัปเดตกราฟ
+                updateSimpleBarChartWithPercent('turnover-chart', filteredData.map(d => d.hotel), filteredData.map(d => d.turnover), 'rgba(231, 74, 59, 0.7)');
+                $('#turnover-chart-title').text(`Turnover Rate ประจำเดือน ${selectedPeriod}`);
+
+                // อัปเดตตาราง
+                const tableBody = $('#turnover-summary-table-body').empty();
+                if (filteredData.length === 0) {
+                    tableBody.html('<tr><td colspan="2" class="text-center text-muted">ไม่พบข้อมูล</td></tr>');
+                } else {
+                    filteredData.forEach(d => {
+                        tableBody.append(`<tr><td>${d.hotel}</td><td>${d.turnover.toFixed(1)}%</td></tr>`);
+                    });
+                }
+            } else { 
+                // --- มุมมองภาพรวม (Trend) ---
+                const turnoverHtml = `
+                    <div class="col-12 mb-4">
+                        <div class="card">
+                            <div class="card-header" id="turnover-table-title"></div>
+                            <div class="card-body sc-table-container">
+                                <table class="table table-bordered table-sm">
+                                   <thead id="turnover-table-head"></thead>
+                                   <tbody id="turnover-table-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 mb-4">
+                        <div class="card">
+                            <div class="card-header" id="turnover-chart-title"></div>
+                            <div class="card-body"><div class="chart-container" style="height: 500px;"><canvas id="turnover-chart"></canvas></div></div>
+                        </div>
+                    </div>`;
+                $('#turnover-section').html(turnoverHtml);
+
+                let filteredData = (selectedHotel === 'All') ? allTurnoverData : allTurnoverData.filter(d => d.hotel === selectedHotel);
+                const allPeriods = [...new Set(filteredData.map(d => d.period))].sort((a, b) => parsePeriodToDate(a) - parsePeriodToDate(b));
+                const hotelsInSelection = [...new Set(filteredData.map(d => d.hotel))].sort();
+
+                // อัปเดตตาราง
+                let tableHead = `<tr><th>เดือน</th>`;
+                hotelsInSelection.forEach(h => { tableHead += `<th>${h}</th>`; });
+                tableHead += `</tr>`;
+                $('#turnover-table-head').html(tableHead);
+
+                let tableBody = '';
+                allPeriods.forEach(p => {
+                    tableBody += `<tr><td class="text-nowrap" style="background-color: #f8f9fa; color: #212529; font-weight: bold;">${p}</td>`;
+                    hotelsInSelection.forEach(h => {
+                        const entry = filteredData.find(d => d.period === p && d.hotel === h);
+                        const value = entry ? entry.turnover.toFixed(1) + '%' : '-';
+                        tableBody += `<td style="text-align:center;">${value}</td>`;
+                    });
+                    tableBody += `</tr>`;
+                });
+                $('#turnover-table-body').html(tableBody);
+                $('#turnover-table-title').text(`ตาราง Turnover Rate (${selectedHotel === 'All' ? 'ทุกโรงแรม' : selectedHotel})`);
+
+                // อัปเดตกราฟ (แบบกลุ่ม)
+                const datasets = hotelsInSelection.map((hotel, index) => ({
+                    label: hotel,
+                    data: allPeriods.map(p => filteredData.find(d => d.period === p && d.hotel === hotel)?.turnover || null),
+                    backgroundColor: CHART_COLORS[index % CHART_COLORS.length],
+                }));
+                updateGroupedBarChart('turnover-chart', allPeriods, datasets);
+                $('#turnover-chart-title').text(`Turnover Rate รายเดือน (${selectedHotel === 'All' ? 'ทุกโรงแรม' : selectedHotel})`);
+            }
+        }
+
+        /**
+         * @name updateServiceChargeSection
+         * @description อัปเดตส่วนของข้อมูล Service Charge ทั้งตาราง Heatmap และกราฟค่าเฉลี่ย
+         */
+        function updateServiceChargeSection() {
+            const scHtml = `
+                <div class="col-12 mb-4">
+                    <div class="card">
+                        <div class="card-header" id="sc-table-title">Service Charge รายเดือน</div>
+                        <div class="card-body sc-table-container"><table class="table table-bordered table-sm sc-table"><thead id="sc-table-head"></thead><tbody id="sc-table-body"></tbody></table></div>
+                    </div>
+                </div>
+                <div class="col-12 mb-4">
+                    <div class="card">
+                        <div class="card-header">Average Service Charge</div>
+                        <div class="card-body"><div class="chart-container" style="height: 450px;"><canvas id="avg-sc-chart"></canvas></div></div>
+                    </div>
+                </div>`;
+            $('#sc-section').html(scHtml);
+            
+            const selectedHotel = $('#hotel-filter').val();
+            const hotels = [...new Set(allServiceChargeData.map(d => d.hotel))].sort();
+            const periods = [...new Set(allServiceChargeData.map(d => d.period))].sort((a,b) => parsePeriodToDate(a) - parsePeriodToDate(b));
+            
+            // สร้างตาราง Heatmap
+            let tableHead = `<tr><th>เดือน</th>`;
+            hotels.forEach(h => { if(selectedHotel === 'All' || selectedHotel === h) tableHead += `<th>${h}</th>`; });
+            tableHead += `</tr>`;
+            $('#sc-table-head').html(tableHead);
+            
+            const allValues = allServiceChargeData.map(d => d.service_charge);
+            const min = Math.min(...allValues), max = Math.max(...allValues);
+
+            let tableBody = '';
+            periods.forEach(p => {
+                tableBody += `<tr><td>${p}</td>`;
+                hotels.forEach(h => {
+                    if(selectedHotel === 'All' || selectedHotel === h) {
+                        const entry = allServiceChargeData.find(d => d.period === p && d.hotel === h);
+                        const value = entry ? entry.service_charge : null;
+                        const color = value !== null ? getColorForValue(value, min, max) : '#ffffff'; // คำนวณสีตามค่า
+                        const textColor = value !== null ? '#ffffff' : '#212529'; // ถ้ามีค่าให้ตัวอักษรเป็นสีขาวเพื่อให้ตัดกับพื้นหลัง
+                        tableBody += `<td style="background-color:${color}; color:${textColor}">${value ? value.toLocaleString() : '-'}</td>`;
+                    }
+                });
+                tableBody += `</tr>`;
+            });
+            $('#sc-table-body').html(tableBody);
+            $('#sc-table-title').text(`Service Charge รายเดือน (${selectedHotel === 'All' ? 'ทุกโรงแรม' : selectedHotel})`);
+
+            // คำนวณและสร้างกราฟค่าเฉลี่ย
+            const avgDataMap = new Map();
+            allServiceChargeData.forEach(d => {
+                if (!avgDataMap.has(d.hotel)) avgDataMap.set(d.hotel, { sum: 0, count: 0 });
+                const current = avgDataMap.get(d.hotel);
+                current.sum += d.service_charge;
+                current.count++;
+            });
+            
+            const avgData = [];
+            for(const [hotel, {sum, count}] of avgDataMap.entries()) {
+                avgData.push({ hotel, service_charge: sum / count });
+            }
+
+            const sortedAvgData = avgData.sort((a,b) => b.service_charge - a.service_charge);
+            updateBarChart('avg-sc-chart', 'bar', sortedAvgData.map(d => d.hotel), sortedAvgData.map(d => d.service_charge), '#6f42c1', 'y');
+        }
+
+        /**
+         * @name getColorForValue
+         * @description คำนวณสีสำหรับ Heatmap จากค่าที่ให้มา เทียบกับค่า min/max
+         * @param {number} value - ค่าที่ต้องการหาสี
+         * @param {number} min - ค่าต่ำสุดในชุดข้อมูล
+         * @param {number} max - ค่าสูงสุดในชุดข้อมูล
+         * @returns {string} - ค่าสี HSL (เช่น 'hsl(120, 90%, 45%)')
+         */
+        function getColorForValue(value, min, max) {
+            if (max === min) return `hsl(120, 70%, 50%)`; // กรณีมีค่าเดียว
+            const ratio = (value - min) / (max - min); // หาอัตราส่วนของค่า (0.0 - 1.0)
+            const hue = ratio * 120; // แปลงอัตราส่วนเป็นค่าสี (Hue) ใน HSL (0=แดง, 120=เขียว)
+            return `hsl(${hue}, 90%, 45%)`;
+        }
+
+        /**
+         * @name updateSummaryTable
+         * @description อัปเดตข้อมูลในตารางสรุปจำนวนพนักงานตามแผนก
+         * @param {Array} sortedDepartments - Array ของแผนกที่เรียงลำดับแล้ว
+         */
+        function updateSummaryTable(sortedDepartments) {
+            const tableBody = $('#summary-table-body').empty();
+            if (sortedDepartments.length === 0) {
+                tableBody.html('<tr><td colspan="2" class="text-center text-muted">ไม่พบข้อมูล</td></tr>');
+                $('#summary-table-total').text('0'); return;
+            }
+            let total = 0;
+            sortedDepartments.forEach(([dept, value]) => {
+                tableBody.append(`<tr><td>${dept}</td><td>${value.toLocaleString()}</td></tr>`);
+                total += value;
+            });
+            $('#summary-table-total').text(total.toLocaleString());
+        }
+
+        /**
+         * @name updateTitles
+         * @description อัปเดตหัวข้อของการ์ดและกราฟต่างๆ ให้สอดคล้องกับฟิลเตอร์ที่เลือก
+         */
+        function updateTitles(hotel, type, period, department) {
+            const format = (val, defaultVal = 'ทั้งหมด') => (val === 'All' || !val) ? defaultVal : val;
+            const hotelText = format(hotel, 'ทุกโรงแรม');
+            
+            $('#department-chart-title').text(`สรุปพนักงานตามแผนก (${hotelText}, ${format(type)}, ${format(period)})`);
+            $('#monthly-chart-title').text(`ยอดรวมพนักงานแต่ละเดือน (${hotelText}, แผนก: ${format(department)})`);
+        }
+
+        // --- CHARTING UTILITIES: ฟังก์ชันสำหรับสร้างและอัปเดตกราฟ ---
+
+        function updateDepartmentChart(labels, data) {
+            updateBarChart('department-chart', 'bar', labels, data, 'rgba(74, 105, 189, 0.7)', 'y');
+        }
+        function updateMonthlyChart(labels, data) {
+            updateBarChart('monthly-chart', 'bar', labels, data, '#20c997', 'x');
+        }
+
+        /**
+         * @name updateBarChart
+         * @description ฟังก์ชันกลางสำหรับสร้างกราฟแท่ง (Bar Chart)
+         */
+        function updateBarChart(chartId, type, labels, data, color, axis) {
+            if (chartInstances[chartId]) chartInstances[chartId].destroy(); // ทำลายกราฟเก่า
+            const chartContainer = $(`#${chartId}`).parent();
+            if(labels.length === 0) { // ถ้าไม่มีข้อมูล
+                chartContainer.html('<div class="d-flex align-items-center justify-content-center h-100 text-muted">ไม่พบข้อมูล</div>'); return;
+            } else { chartContainer.html(`<canvas id="${chartId}"></canvas>`); }
+            const ctx = document.getElementById(chartId).getContext('2d');
+            chartInstances[chartId] = new Chart(ctx, {
+                type: type, // ประเภทกราฟ
+                data: { labels, datasets: [{ label: 'จำนวน', data, backgroundColor: color }] },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, // อนุญาตให้กราฟยืดหดได้ไม่ตรงตามอัตราส่วนเดิม
+                    indexAxis: axis, // กำหนดแกนหลัก (x = แท่งตั้ง, y = แท่งนอน)
+                    plugins: { 
+                        legend: {display: false}, // ซ่อน legend
+                        datalabels: { 
+                            anchor: 'end', 
+                            align: axis === 'y' ? 'start' : 'top', // จัดตำแหน่งตัวเลข
+                            color: axis === 'y' ? '#ffffff' : '#333', // กำหนดสีตัวเลข
+                            formatter: v => Math.round(v).toLocaleString() // จัดรูปแบบตัวเลข
+                        } 
+                    } 
+                }
+            });
+        }
+
+        /**
+         * @name updateSimpleBarChartWithPercent
+         * @description ฟังก์ชันสำหรับสร้างกราฟแท่งที่แกน Y และ Datalabel เป็นเปอร์เซ็นต์
+         */
+        function updateSimpleBarChartWithPercent(chartId, labels, data, color) {
+            if (chartInstances[chartId]) chartInstances[chartId].destroy();
+            const chartContainer = $(`#${chartId}`).parent();
+            if(labels.length === 0) {
+                chartContainer.html('<div class="d-flex align-items-center justify-content-center h-100 text-muted">ไม่พบข้อมูล</div>'); return;
+            } else { chartContainer.html(`<canvas id="${chartId}"></canvas>`); }
+            const ctx = document.getElementById(chartId).getContext('2d');
+            chartInstances[chartId] = new Chart(ctx, {
+                type: 'bar',
+                data: { labels, datasets: [{ label: 'Turnover', data, backgroundColor: color }] },
+                options: {
+                    responsive: true, maintainAspectRatio: false, indexAxis: 'x',
+                    plugins: {
+                        legend: { display: false },
+                        datalabels: { anchor: 'end', align: 'top', formatter: v => v.toFixed(1) + '%' }, // แสดงทศนิยม 1 ตำแหน่งและเติม %
+                        tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.parsed.y.toFixed(2)}%` } } // Tooltip แสดงทศนิยม 2 ตำแหน่ง
+                    },
+                    scales: { y: { beginAtZero: true, ticks: { callback: v => v + '%' } } } // เพิ่ม % ที่แกน Y
+                }
+            });
+        }
+
+        /**
+         * @name updateGroupedBarChart
+         * @description ฟังก์ชันสำหรับสร้างกราฟแท่งแบบกลุ่ม (Grouped Bar Chart)
+         */
+        function updateGroupedBarChart(chartId, labels, datasets) {
+            if (chartInstances[chartId]) chartInstances[chartId].destroy();
+            const chartContainer = $(`#${chartId}`).parent();
+            if (datasets.length === 0 || datasets.every(ds => ds.data.every(d => d === null))) {
+                chartContainer.html('<div class="d-flex align-items-center justify-content-center h-100 text-muted">ไม่พบข้อมูล</div>'); return;
+            } else { chartContainer.html(`<canvas id="${chartId}"></canvas>`); }
+            const ctx = document.getElementById(chartId).getContext('2d');
+            chartInstances[chartId] = new Chart(ctx, {
+                type: 'bar',
+                data: { labels, datasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top', display: datasets.length > 1 }, // แสดง legend ถ้ามีมากกว่า 1 dataset
+                        datalabels: { 
+                            display: true, 
+                            anchor: 'end', 
+                            align: 'top',
+                            rotation: -45, // หมุนตัวเลขเพื่อไม่ให้ซ้อนกัน
+                            font: {size: 9}, // ลดขนาดฟอนต์
+                            formatter: v => v > 0 ? v.toFixed(1) + '%' : '', 
+                            color: '#444'
+                        },
+                        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label || ''}: ${ctx.parsed.y.toFixed(2)}%` } }
+                    },
+                    scales: { y: { beginAtZero: true, ticks: { callback: v => v + '%' } } }
+                }
+            });
+        }
+
+        // --- GENERAL UTILITY FUNCTIONS: ฟังก์ชันช่วยทั่วไป ---
+        
+        /** @description ทำลาย instance ของ Chart.js ทั้งหมดที่เก็บไว้ใน chartInstances */
+        function destroyAllCharts() {
+            Object.values(chartInstances).forEach(chart => chart.destroy());
+            chartInstances = {};
+        }
+        
+        /** @description รีเซ็ตหน้าเว็บกลับไปสู่สถานะเริ่มต้น (หน้าอัปโหลด) */
+        function resetToUpload() {
+            destroyAllCharts();
+            $('#dashboard-container').hide();
+            $('#upload-section').show();
+            $('#excel-file-input').val(''); // ล้างค่าใน input file
+            $('#upload-error').text('');
+            // ล้างข้อมูลทั้งหมดในตัวแปร global
+            allParsedData = [];
+            allTurnoverData = [];
+            allServiceChargeData = [];
+        }
+        
+        /**
+         * @description แปลงข้อความ 'Mon-YY' (เช่น 'Jan-24') ให้เป็น Date object เพื่อใช้ในการเรียงลำดับ
+         * @param {string} periodString - ข้อความที่ต้องการแปลง
+         * @returns {Date | null} - Date object หรือ null หากแปลงไม่ได้
+         */
+        function parsePeriodToDate(periodString) {
+            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            const match = String(periodString || '').match(/^([A-Za-z]{3})-(\d{2})$/);
+            if (match) {
+                const month = monthNames.findIndex(m => m.toLowerCase() === match[1].toLowerCase());
+                if (month !== -1) return new Date(2000 + parseInt(match[2]), month, 1);
+            }
+            return null;
+        }
+    });
+    </script>
+</body>
+</html>

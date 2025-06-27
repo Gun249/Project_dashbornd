@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>แดชบอร์ดวิเคราะห์ข้อมูลโรงแรม (จากไฟล์ Excel)</title>
+
+    <!-- 1. เรียกใช้ CSS Libraries -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/2.0.8/css/dataTables.bootstrap5.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    <!-- CSS เพิ่มเติมสำหรับตกแต่ง -->
+    <style>
+        body {
+            background: #eef2f3;
+            font-family: 'Sarabun', sans-serif;
+        }
+        #background-slider {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            transition: background-image 1s ease-in-out;
+            will-change: background-image;
+        }
+        .card {
+            border: none;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.05);
+            border-radius: 20px;
+            height: 100%;
+            transition: all 0.3s ease-in-out;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.1);
+        }
+        .card-header {
+            background: #4a69bd;
+            background: -webkit-linear-gradient(to right, #6a89cc, #4a69bd);
+            background: linear-gradient(to right, #6a89cc, #4a69bd);
+            color: white;
+            font-weight: bold;
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            border-bottom: none;
+        }
+        .kpi-card {
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-icon {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 3rem;
+            opacity: 0.15;
+            color: #000;
+        }
+        .kpi-value { font-size: 2.2rem; font-weight: bold; }
+        .kpi-label { font-size: 1.1rem; color: #6c757d; }
+        .chart-container { position: relative; height: 350px; width: 100%; }
+        .upload-container {
+            max-width: 700px;
+            margin: 50px auto;
+            padding: 40px;
+            background-color: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(5px);
+            border-radius: 20px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            position: relative;
+            z-index: 1;
+        }
+        #dashboard-container { display: none; }
+        #customerTable thead { background-color: #4a69bd; color: white; }
+        .file-selector-card { background-color: #f8f9fa; }
+        .file-list-item {
+            background-color: #e9ecef;
+            padding: 8px 12px;
+            border-radius: 8px;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="background-slider"></div>
+
+    <div class="container-fluid p-4">
+        
+        <!-- ส่วนของการอัปโหลดไฟล์ -->
+        <div id="upload-section" class="upload-container">
+            <div class="text-center">
+                <h1 class="mb-3">Chatrium BI Dashboard</h1>
+                <p class="text-muted">กรุณาเลือกไฟล์ Excel (.xlsx) เพื่อเริ่มการวิเคราะห์</p>
+                <hr>
+            </div>
+            <div class="mt-4">
+                <input type="file" id="excel-file-input" class="form-control form-control-lg" accept=".xlsx, .xls" multiple>
+            </div>
+            <div id="file-list" class="mt-3"></div>
+            <div id="loading-spinner" class="text-center mt-4" style="display: none;">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p>กำลังประมวลผลไฟล์...</p>
+            </div>
+             <div id="upload-error" class="text-danger mt-3"></div>
+        </div>
+
+        <!-- ส่วนของแดชบอร์ด -->
+        <div id="dashboard-container">
+            <!-- Header and Buttons -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 id="dashboard-title" class="mb-0">แดชบอร์ดวิเคราะห์ข้อมูล</h1>
+                <div id="action-buttons">
+                    <button id="export-pdf-button" class="btn btn-danger"><i class="bi bi-file-earmark-pdf-fill me-2"></i>Export PDF</button>
+                    <button id="reset-button" class="btn btn-secondary"><i class="bi bi-arrow-clockwise me-2"></i>เลือกไฟล์ใหม่</button>
+                </div>
+            </div>
+
+            <!-- File Selector -->
+            <div id="file-selector-container" class="card file-selector-card mb-4" style="display: none;">
+                <div class="card-body">
+                    <h5 class="card-title">เลือกไฟล์เพื่อแสดงผล</h5>
+                    <div id="file-checkboxes" class="d-flex flex-wrap gap-3 my-3"></div>
+                    <button id="update-view-button" class="btn btn-success"><i class="bi bi-bar-chart-fill me-2"></i>แสดงผล</button>
+                </div>
+            </div>
+            
+            <div id="dashboard-content">
+                <!-- Content will be generated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- JS Libraries -->
+    <script src="https://code.jquery.com/jquery-3.7.1.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+    <script src="https://cdn.datatables.net/2.0.8/js/dataTables.js"></script>
+    <script src="https://cdn.datatables.net/2.0.8/js/dataTables.bootstrap5.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+
+    <!-- Main JS -->
+    <script>
+    // Register the datalabels plugin globally
+    Chart.register(ChartDataLabels);
+
+    // --- Background Slider Logic ---
+    const backgroundImages = [
+        // ใส่ URL รูปภาพของคุณที่นี่
+        'img/17295062633122_chatriumcollection2.jpg',
+        'img/17325422301871_17322868979152gallery5.jpg',
+        'img/poster_17339097558204_chrbherovideo.jpg'
+    ];
+    let currentImageIndex = 0;
+    const backgroundSlider = document.getElementById('background-slider');
+    let backgroundInterval;
+
+    function startBackgroundSlider() {
+        if (!backgroundSlider) return;
+        
+        backgroundImages.forEach(src => {
+            const img = new Image();
+            img.src = src;
+        });
+
+        const changeBackground = () => {
+            if (backgroundSlider) {
+               backgroundSlider.style.backgroundImage = `url('${backgroundImages[currentImageIndex]}')`;
+               currentImageIndex = (currentImageIndex + 1) % backgroundImages.length;
+            }
+        };
+        
+        stopBackgroundSlider();
+        changeBackground();
+        backgroundInterval = setInterval(changeBackground, 5000);
+        if (backgroundSlider) backgroundSlider.style.display = 'block';
+    }
+
+    function stopBackgroundSlider() {
+        clearInterval(backgroundInterval);
+        if (backgroundSlider) backgroundSlider.style.display = 'none';
+    }
+
+
+    // Global State
+    let processedFiles = [];
+    let chartInstances = {};
+    const COLORS = ['#5B9BD5', '#ED7D31', '#A5A5A5', '#FFC000', '#4472C4', '#70AD47', '#255E91', '#9E480E'];
+
+    // Event Listeners
+    $('#excel-file-input').on('change', handleFileAnalysis);
+    $('#reset-button').on('click', resetToUpload);
+    $('#export-pdf-button').on('click', exportToPDF);
+    $('#update-view-button').on('click', triggerViewUpdate);
+    
+    async function handleFileAnalysis(event) {
+        const files = event.target.files;
+        const fileListDiv = $('#file-list');
+        
+        fileListDiv.empty();
+        $('#upload-error').text('');
+
+        if (!files || files.length === 0) {
+            return;
+        }
+
+        for (let i = 0; i < files.length; i++) {
+            fileListDiv.append(`<div class="file-list-item">${files[i].name}</div>`);
+        }
+        
+        $('#loading-spinner').show();
+        processedFiles = [];
+
+        const filePromises = Array.from(files).map(file => {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                        const firstSheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheetName];
+                        const dataAsArray = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '', raw: false });
+                        
+                        if (dataAsArray.length < 2) {
+                            reject(new Error(`ไฟล์ "${file.name}" ต้องมีข้อมูลอย่างน้อย 1 แถว`));
+                            return;
+                        }
+                        const customerData = mapData(dataAsArray);
+                        // --- MODIFICATION HERE ---
+                        // Format the filename before resolving
+                        const formattedName = formatFileName(file.name);
+                        resolve({ fileName: formattedName, data: customerData });
+                        // --- END MODIFICATION ---
+
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                reader.onerror = () => reject(new Error(`เกิดข้อผิดพลาดในการอ่านไฟล์: ${file.name}`));
+                reader.readAsArrayBuffer(file);
+            });
+        });
+
+        try {
+            processedFiles = await Promise.all(filePromises);
+            $('#upload-section').hide();
+            $('#dashboard-container').show();
+            stopBackgroundSlider();
+            renderDashboard();
+        } catch (error) {
+            console.error("Error processing files:", error);
+            $('#upload-error').text(`เกิดข้อผิดพลาด: ${error.message}`);
+            $('#dashboard-container').hide();
+            $('#upload-section').show();
+        } finally {
+            $('#loading-spinner').hide();
+        }
+    }
+    
+    function renderDashboard() {
+        destroyAllCharts();
+        $('#dashboard-content').empty();
+        
+        if (processedFiles.length === 0) return;
+
+        setupFileSelectorUI();
+
+        const defaultFile = processedFiles[0];
+        $('#dashboard-title').text(`แดชบอร์ด: ${defaultFile.fileName}`);
+        generateSingleFileDashboard(defaultFile.data);
+        $('#export-pdf-button').show();
+
+        if (processedFiles.length > 1) {
+            $('#file-selector-container').show();
+        } else {
+            $('#file-selector-container').hide();
+        }
+    }
+
+    function generateSingleFileDashboard(customerData) {
+        const content = `
+            <div id="exportable-content">
+                <h3 class="mb-3 text-secondary pdf-section">ภาพรวมหลัก</h3>
+                <div class="row mb-4 pdf-section">
+                     <div class="col-xl-3 col-md-6 mb-4"><div class="card kpi-card"><div class="card-body"><i class="bi bi-journal-check kpi-icon"></i><div id="actual-booking-label" class="kpi-label">Booking จริง</div><div id="actual-bookings" class="kpi-value text-primary">0</div></div></div></div>
+                     <div class="col-xl-3 col-md-6 mb-4"><div class="card kpi-card"><div class="card-body"><i class="bi bi-cash-stack kpi-icon"></i><div class="kpi-label">รายได้รวม</div><div id="total-revenue" class="kpi-value text-success">฿0</div></div></div></div>
+                     <div class="col-xl-3 col-md-6 mb-4"><div class="card kpi-card"><div class="card-body"><i class="bi bi-graph-up-arrow kpi-icon"></i><div class="kpi-label">ADR</div><div id="adr" class="kpi-value text-info">฿0</div></div></div></div>
+                     <div class="col-xl-3 col-md-6 mb-4"><div class="card kpi-card"><div class="card-body"><i class="bi bi-moon-stars-fill kpi-icon"></i><div class="kpi-label">จำนวนคืนพักเฉลี่ย</div><div id="avg-stay" class="kpi-value text-warning">0</div></div></div></div>
+                </div>
+                <h3 class="mb-3 text-secondary pdf-section">สรุปรายได้ตามประเภท</h3>
+                <div class="row mb-4 pdf-section">
+                    <div class="col-xl-4 col-md-6 mb-4"><div class="card kpi-card"><div class="card-body"><i class="bi bi-door-open-fill kpi-icon"></i><div class="kpi-label">รายได้ห้องพัก</div><div id="room-revenue-total" class="kpi-value text-secondary">฿0</div></div></div></div>
+                    <div class="col-xl-4 col-md-6 mb-4"><div class="card kpi-card"><div class="card-body"><i class="bi bi-cup-hot-fill kpi-icon"></i><div class="kpi-label">รายได้อาหาร/เครื่องดื่ม</div><div id="fandb-revenue-total" class="kpi-value text-primary">฿0</div></div></div></div>
+                    <div class="col-xl-4 col-md-6 mb-4"><div class="card kpi-card"><div class="card-body"><i class="bi bi-gem kpi-icon"></i><div class="kpi-label">รายได้เสริม</div><div id="extra-revenue-total" class="kpi-value text-danger">฿0</div></div></div></div>
+                </div>
+                <div class="row mb-4 pdf-section"><div class="col-12"><div class="card"><div class="card-header">10 อันดับลูกค้าที่ใช้จ่ายสูงสุด</div><div class="card-body"><div class="chart-container" style="height: 400px;"><canvas id="topSpendersChart"></canvas></div></div></div></div></div>
+                <div class="row mb-4 pdf-section">
+                    <div class="col-lg-6 mb-4"><div class="card"><div class="card-header">คุณภาพข้อมูลอีเมล</div><div class="card-body"><div class="chart-container"><canvas id="emailQualityChart"></canvas></div></div></div></div>
+                    <div class="col-lg-6 mb-4"><div class="card"><div class="card-header">สัดส่วนรายได้ตามประเภท</div><div class="card-body"><div class="chart-container"><canvas id="revenueBreakdownChart"></canvas></div></div></div></div>
+                </div>
+                <div class="row mb-4 pdf-section">
+                    <div class="col-lg-6 mb-4"><div class="card"><div class="card-header">อันดับประเภทห้องพัก</div><div class="card-body"><div class="chart-container"><canvas id="roomTypeChart"></canvas></div></div></div></div>
+                    <div class="col-lg-6 mb-4"><div class="card"><div class="card-header">อันดับช่องทางการจอง</div><div class="card-body"><div class="chart-container"><canvas id="sourceChart"></canvas></div></div></div></div>
+                </div>
+                 <div class="row mb-4 pdf-section">
+                    <div class="col-lg-6 mb-4"><div class="card"><div class="card-header">อันดับ Market</div><div class="card-body"><div class="chart-container"><canvas id="marketChart"></canvas></div></div></div></div>
+                    <div class="col-lg-6 mb-4"><div class="card"><div class="card-header">อันดับสัญชาติลูกค้า</div><div class="card-body"><div class="chart-container"><canvas id="countryChart"></canvas></div></div></div></div>
+                </div>
+            </div>
+            <div id="data-table-section" class="row mt-4"><div class="col-12"><div class="card"><div class="card-header">ข้อมูลลูกค้าทั้งหมด</div><div class="card-body"><div class="table-responsive"><table id="customerTable" class="table table-striped table-bordered" style="width:100%"><thead></thead><tbody></tbody></table></div></div></div></div></div>
+        `;
+        $('#dashboard-content').html(content);
+
+        const metrics = calculateMetrics(customerData);
+
+        // Update KPIs
+        $('#actual-bookings').text(formatNumber(metrics.actualBookingCount));
+        $('#actual-booking-label').html(`Booking จริง <small>(${formatNumber(metrics.totalRows)} rows)</small>`);
+        $('#total-revenue').text(formatCurrency(metrics.totalRevenue));
+        $('#adr').text(formatCurrency(metrics.adr));
+        $('#avg-stay').text(metrics.avgStay);
+        $('#room-revenue-total').text(formatCurrency(metrics.totalRoomRevenue));
+        $('#fandb-revenue-total').text(formatCurrency(metrics.totalFandbRevenue));
+        $('#extra-revenue-total').text(formatCurrency(metrics.totalExtraRevenue));
+
+        // Create Charts
+        createBarChart('topSpendersChart', metrics.topSpenders.map(s => s[0]), metrics.topSpenders.map(s => s[1]), 'ยอดใช้จ่าย', COLORS[5]);
+        createBarChart('emailQualityChart', ['อีเมลไม่ซ้ำ', 'อีเมลซ้ำ', 'ไม่มี/ผิดรูปแบบ'], [metrics.emailQuality.unique, metrics.emailQuality.duplicate, metrics.emailQuality.invalid], 'คุณภาพอีเมล', ['#70AD47', '#FFC000', '#ED7D31']);
+        createBarChart('revenueBreakdownChart', metrics.revenueBreakdown.map(d => d.label), metrics.revenueBreakdown.map(d => d.value), 'ประเภทรายได้', COLORS);
+        
+        const createTopNChart = (id, data, label, color) => createBarChart(id, data.map(d=>d[0]), data.map(d=>d[1]), label, color);
+        createTopNChart('countryChart', metrics.topCountries, 'สัญชาติ', COLORS[1]);
+        createTopNChart('roomTypeChart', metrics.topRoomTypes, 'ประเภทห้อง', COLORS[3]);
+        createTopNChart('sourceChart', metrics.topSources, 'ช่องทางจอง', COLORS[0]);
+        createTopNChart('marketChart', metrics.topMarkets, 'Market', COLORS[7]);
+
+        // Populate Data Table
+        if ($.fn.DataTable.isDataTable('#customerTable')) {
+            $('#customerTable').DataTable().destroy();
+        }
+        const tableBody = $('#customerTable tbody').empty();
+        $('#customerTable thead').html(`<tr><th>RM#</th><th>Booked Date</th><th>ชื่อ-นามสกุล</th><th>Email</th><th>สัญชาติ</th><th>ประเภทห้อง</th><th>ช่องทางจอง</th><th>รายได้รวม</th></tr>`);
+        customerData.forEach(c => {
+            const fullName = ((c.name || '') + ' ' + (c.lastName || '')).trim();
+            const bookedDate = c.bookedDate instanceof Date ? c.bookedDate.toLocaleDateString('th-TH') : (c.bookedDate || 'N/A');
+            tableBody.append(`<tr>
+                <td>${c.roomNumber || 'N/A'}</td><td>${bookedDate}</td><td>${fullName}</td><td>${c.email || 'N/A'}</td>
+                <td>${c.country || ''}</td><td>${c.roomType || ''}</td><td>${c.source || ''}</td><td>${formatCurrency(c.totalBill)}</td>
+            </tr>`);
+        });
+        new DataTable('#customerTable', { responsive: true, destroy: true });
+    }
+
+    function setupFileSelectorUI() {
+        const container = $('#file-checkboxes').empty();
+        processedFiles.forEach((file, index) => {
+            const isChecked = index === 0 ? 'checked' : '';
+            const checkbox = `
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" value="${file.fileName}" id="file-check-${index}" ${isChecked}>
+                    <label class="form-check-label" for="file-check-${index}">
+                        ${file.fileName}
+                    </label>
+                </div>`;
+            container.append(checkbox);
+        });
+    }
+    
+    function triggerViewUpdate() {
+        const selectedFiles = [];
+        $('#file-checkboxes input:checked').each(function() {
+            const fileName = $(this).val();
+            const fileData = processedFiles.find(f => f.fileName === fileName);
+            if (fileData) {
+                selectedFiles.push(fileData);
+            }
+        });
+
+        if (selectedFiles.length === 0) {
+            alert('กรุณาเลือกอย่างน้อย 1 ไฟล์เพื่อแสดงผล');
+            return;
+        }
+
+        destroyAllCharts();
+        $('#dashboard-content').empty();
+
+        if (selectedFiles.length === 1) {
+            const file = selectedFiles[0];
+            $('#dashboard-title').text(`แดชบอร์ด: ${file.fileName}`);
+            generateSingleFileDashboard(file.data);
+            $('#export-pdf-button').show();
+        } else {
+             if (selectedFiles.length > 4) {
+                 alert('สามารถเปรียบเทียบได้สูงสุด 4 ไฟล์');
+                 generateComparisonDashboard(selectedFiles.slice(0, 4));
+                 return;
+             }
+            $('#dashboard-title').text('แดชบอร์ดเปรียบเทียบข้อมูล');
+            generateComparisonDashboard(selectedFiles);
+            $('#export-pdf-button').hide();
+        }
+    }
+    
+    function generateComparisonDashboard(filesToCompare) {
+        let kpiHTML = `
+            <div class="card mb-4">
+                <div class="card-header">เปรียบเทียบภาพรวมหลัก (KPIs)</div>
+                <div class="card-body">
+                    <p class="text-muted text-center small mb-3">เลือก KPI ที่ต้องการเปรียบเทียบ (สูงสุด 4 รายการ)</p>
+                    <div class="d-flex justify-content-center flex-wrap gap-2 mb-3" id="kpi-filter-buttons"></div>
+                    <div class="chart-container" style="height:400px"><canvas id="kpi-comparison-chart"></canvas></div>
+                </div>
+            </div>`;
+        $('#dashboard-content').append(kpiHTML);
+        
+        const allMetrics = filesToCompare.map(f => calculateMetrics(f.data));
+        const fileNames = filesToCompare.map(f => f.fileName);
+
+        const availableKpis = [
+            { key: 'totalRevenue', label: 'รายได้รวม'},
+            { key: 'adr', label: 'ADR' },
+            { key: 'actualBookingCount', label: 'Booking จริง' },
+            { key: 'avgStay', label: 'คืนพักเฉลี่ย' },
+            { key: 'totalRoomRevenue', label: 'รายได้ห้องพัก' },
+            { key: 'totalFandbRevenue', label: 'รายได้ F&B'},
+            { key: 'totalExtraRevenue', label: 'รายได้เสริม' }
+        ];
+
+        const kpiFilterContainer = $('#kpi-filter-buttons');
+        kpiFilterContainer.empty();
+        availableKpis.forEach((kpi, index) => {
+            const isActive = index < 3;
+            kpiFilterContainer.append(
+                `<button type="button" class="btn btn-sm ${isActive ? 'btn-primary' : 'btn-outline-primary'}" data-kpi-key="${kpi.key}">${kpi.label}</button>`
+            );
+        });
+
+        const updateKpiComparisonChart = () => {
+            if (chartInstances['kpi-comparison-chart']) {
+                chartInstances['kpi-comparison-chart'].destroy();
+            }
+            
+            const selectedKpiKeys = [];
+            $('#kpi-filter-buttons button.btn-primary').each(function() {
+                selectedKpiKeys.push($(this).data('kpi-key'));
+            });
+
+            if (selectedKpiKeys.length === 0) return;
+
+            const dataLabels = [];
+            const dataValues = [];
+            selectedKpiKeys.forEach(key => {
+                const kpiInfo = availableKpis.find(k => k.key === key);
+                if (kpiInfo) {
+                    dataLabels.push(kpiInfo.label);
+                    dataValues.push(allMetrics.map(m => parseFloat(m[key]) || 0));
+                }
+            });
+            createGroupedBarChart('kpi-comparison-chart', fileNames, dataLabels, dataValues);
+        };
+        
+        kpiFilterContainer.on('click', 'button', function() {
+            const button = $(this);
+            const wasActive = button.hasClass('btn-primary');
+            const activeCount = kpiFilterContainer.find('.btn-primary').length;
+
+            if (!wasActive && activeCount >= 4) {
+                alert('สามารถเลือกเปรียบเทียบได้สูงสุด 4 KPIs เท่านั้น');
+                return;
+            }
+            button.toggleClass('btn-primary btn-outline-primary');
+            updateKpiComparisonChart();
+        });
+
+        updateKpiComparisonChart();
+
+        const comparisonCategories = [
+            { key: 'roomType', title: 'ประเภทห้องพัก (Room Type)' },
+            { key: 'source', title: 'ช่องทางการจอง (Source)' },
+            { key: 'country', title: 'สัญชาติ (Country)' },
+            { key: 'market', title: 'Market' },
+        ];
+        
+        let chartsHTML = '<div class="row">';
+        comparisonCategories.forEach((cat) => {
+            chartsHTML += `
+                <div class="col-lg-6 mb-4">
+                    <div class="card">
+                        <div class="card-header">เปรียบเทียบ 10 อันดับแรก ${cat.title}</div>
+                        <div class="card-body">
+                            <div class="chart-container"><canvas id="compare-${cat.key}"></canvas></div>
+                        </div>
+                    </div>
+                </div>`;
+        });
+        chartsHTML += '</div>';
+        $('#dashboard-content').append(chartsHTML);
+
+        comparisonCategories.forEach(cat => {
+            generateTopNComparisonChart(`compare-${cat.key}`, filesToCompare, cat.key);
+        });
+    }
+
+    function createGroupedBarChart(canvasId, groupLabels, dataLabels, dataValues) {
+        const datasets = dataLabels.map((label, i) => ({
+            label: label,
+            data: dataValues[i],
+            backgroundColor: COLORS[i % COLORS.length] + 'BF',
+            borderColor: COLORS[i % COLORS.length],
+            borderWidth: 1,
+            borderRadius: 5
+        }));
+        
+        const options = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: { display: false },
+                datalabels: { 
+                    display: true, 
+                    anchor: 'end', 
+                    align: 'end',
+                    formatter: (value) => value > 1000 ? (value / 1000).toFixed(1) + 'k' : value.toLocaleString('th-TH'),
+                    font: { size: 10 }
+                }
+            },
+            scales: { y: { beginAtZero: true } },
+            animation: { duration: 1000 }
+        };
+
+        const ctx = $(`#${canvasId}`)[0];
+        if (!ctx) return;
+        chartInstances[canvasId] = new Chart(ctx, {
+            type: 'bar',
+            data: { labels: groupLabels, datasets: datasets },
+            options: options
+        });
+    }
+    
+    function generateTopNComparisonChart(canvasId, files, dataKey) {
+        const allItems = new Set();
+        const filesData = files.map(file => {
+            const counts = getSortedCounts(file.data, dataKey);
+            counts.slice(0, 5).forEach(item => allItems.add(item[0]));
+            return { fileName: file.fileName, counts: new Map(counts) };
+        });
+
+        const labels = Array.from(allItems);
+        
+        const datasets = filesData.map((fileData, index) => {
+            return {
+                label: fileData.fileName,
+                data: labels.map(label => fileData.counts.get(label) || 0),
+                backgroundColor: COLORS[index % COLORS.length],
+            };
+        });
+
+        const options = { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { position: 'top' }, datalabels: { display: false } }, scales: { x: { stacked: false }, y: { stacked: false } }, animation: { duration: 1000 } };
+        const ctx = $(`#${canvasId}`)[0];
+        if (!ctx) return;
+        chartInstances[canvasId] = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: datasets }, options: options });
+    }
+
+    // --- UTILITY AND HELPER FUNCTIONS ---
+    
+    function destroyAllCharts() {
+        Object.values(chartInstances).forEach(chart => chart.destroy());
+        chartInstances = {};
+    }
+
+    function resetToUpload() {
+        destroyAllCharts();
+        processedFiles = [];
+        $('#excel-file-input').val('');
+        $('#file-list').empty();
+        $('#upload-error').text('');
+        $('#dashboard-container').hide();
+        $('#upload-section').show();
+        startBackgroundSlider();
+    }
+    
+    // --- NEW FUNCTION HERE ---
+    /**
+     * Formats a filename like 'info-DDMon-HotelName.xlsx' to 'hotelname-ddmon'
+     * @param {string} originalName - The original file name.
+     * @returns {string} The formatted name.
+     */
+    function formatFileName(originalName) {
+        // Remove file extension
+        const nameWithoutExt = originalName.split('.').slice(0, -1).join('.');
+        // Split by hyphen
+        const parts = nameWithoutExt.split('-');
+
+        // Expecting at least 3 parts (e.g., info-date-hotel)
+        if (parts.length >= 3) {
+            const hotelName = parts[parts.length - 1];
+            const datePart = parts[parts.length - 2];
+            return `${hotelName.toUpperCase()}-${datePart.toUpperCase()}`;
+        }
+        
+        // Fallback for filenames that don't match the pattern
+        return nameWithoutExt;
+    }
+    // --- END NEW FUNCTION ---
+
+    const formatCurrency = (num) => '฿' + (num || 0).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    const formatNumber = (num) => (num || 0).toLocaleString('th-TH');
+
+    function createBarChart(canvasId, labels, data, chartLabel, colors = COLORS) {
+        const ctx = $(`#${canvasId}`)[0];
+        if (!ctx) {
+            console.error(`ไม่พบ Canvas Element ที่มี ID: ${canvasId}`);
+            return;
+        }
+        const options = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { display: true, anchor: 'end', align: 'end', formatter: (value) => value.toLocaleString('th-TH') } }, scales: { y: { beginAtZero: true }, x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } } }, animation: { duration: 1000, easing: 'easeInOutQuad' } };
+        const chart = new Chart(ctx, { type: 'bar', data: { labels, datasets: [{ label: chartLabel, data, backgroundColor: colors, borderRadius: 5 }] }, options });
+        chartInstances[canvasId] = chart;
+    }
+    
+    const getSortedCounts = (data, key) => {
+        const counts = data.reduce((acc, item) => {
+            const itemKey = item[key] || 'ไม่ระบุ';
+            acc[itemKey] = (acc[itemKey] || 0) + 1;
+            return acc;
+        }, {});
+        return Object.entries(counts).sort(([, a], [, b]) => b - a);
+    };
+
+    const getTop10WithOthers = (sortedData) => {
+        if (sortedData.length <= 10) {
+            return sortedData;
+        }
+
+        const top10 = sortedData.slice(0, 10);
+        const others = sortedData.slice(10);
+        
+        const othersSum = others.reduce((acc, current) => acc + current[1], 0);
+
+        if (othersSum > 0) {
+            top10.push(['อื่นๆ', othersSum]);
+        }
+        
+        return top10;
+    };
+
+    function calculateMetrics(customerData) {
+        const totalRows = customerData.length;
+        const uniqueBookings = new Set();
+        customerData.forEach(c => {
+            const date = c.bookedDate instanceof Date ? c.bookedDate : new Date(c.bookedDate);
+            if (c.roomNumber && c.bookedDate && !isNaN(date.getTime())) {
+                uniqueBookings.add(`${date.toISOString().split('T')[0]}_${c.roomNumber}`);
+            }
+        });
+        const actualBookingCount = uniqueBookings.size > 0 ? uniqueBookings.size : totalRows;
+        
+        const totalRevenue = customerData.reduce((sum, c) => sum + (c.totalBill || 0), 0);
+        const totalNights = customerData.reduce((sum, c) => {
+            const checkIn = new Date(c.checkIn), checkOut = new Date(c.checkOut);
+            return sum + (checkOut > checkIn ? (checkOut - checkIn) / 864e5 : 0);
+        }, 0);
+        const totalRoomRevenue = customerData.reduce((sum, c) => sum + (c.roomRevenue || 0), 0);
+        const totalFandbRevenue = customerData.reduce((sum, c) => sum + (c.fandbRevenue || 0), 0);
+        const totalExtraRevenue = customerData.reduce((sum, c) => sum + (c.extraRevenue || 0), 0);
+
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        const emailCounts = {};
+        customerData.forEach(c => {
+            const email = c.email ? String(c.email).trim().toLowerCase() : '';
+            if (email && emailRegex.test(email)) {
+                emailCounts[email] = (emailCounts[email] || 0) + 1;
+            }
+        });
+        const duplicateEntries = Object.values(emailCounts).filter(c => c > 1).reduce((sum, c) => sum + c, 0);
+        const uniqueEntries = Object.keys(emailCounts).length;
+        const invalidOrMissingCount = totalRows - (duplicateEntries + uniqueEntries);
+        
+        const aggregatedSpenders = customerData.reduce((acc, c) => {
+            const fullName = ((c.name || '') + ' ' + (c.lastName || '')).trim() || `Unknown`;
+            if (fullName !== 'Unknown') acc[fullName] = (acc[fullName] || 0) + (c.totalBill || 0);
+            return acc;
+        }, {});
+        
+        const revenueBreakdown = [
+            { label: 'รายได้ห้องพัก', value: totalRoomRevenue },
+            { label: 'รายได้อาหาร/เครื่องดื่ม', value: totalFandbRevenue },
+            { label: 'รายได้เสริม', value: totalExtraRevenue }
+        ];
+
+        return {
+            totalRows,
+            actualBookingCount,
+            totalRevenue,
+            totalRoomRevenue: totalRoomRevenue,
+            totalFandbRevenue: totalFandbRevenue,
+            totalExtraRevenue: totalExtraRevenue,
+            adr: totalNights > 0 ? totalRevenue / totalNights : 0,
+            avgStay: actualBookingCount > 0 ? (totalNights / actualBookingCount).toFixed(1) : 0,
+            emailQuality: { unique: uniqueEntries, duplicate: duplicateEntries, invalid: invalidOrMissingCount },
+            topSpenders: Object.entries(aggregatedSpenders).sort(([, a], [, b]) => b - a).slice(0, 10), 
+            topRoomTypes: getTop10WithOthers(getSortedCounts(customerData, 'roomType')),
+            topSources: getTop10WithOthers(getSortedCounts(customerData, 'source')),
+            topMarkets: getTop10WithOthers(getSortedCounts(customerData, 'market')),
+            topCountries: getTop10WithOthers(getSortedCounts(customerData, 'country')),
+            revenueBreakdown: revenueBreakdown
+        };
+    }
+
+    function mapData(dataAsArray) {
+        const headerPossibilities = {
+            bookedDate: { aliases: ['booked'], original: 'Booked' },
+            roomNumber: { aliases: ['rm#', 'rm'], original: 'RM#' },
+            checkIn: { aliases: ['arrival', 'checkin', 'arrivaldate'], original: 'Arrival' },
+            checkOut: { aliases: ['depart', 'departure', 'checkout', 'departuredate'], original: 'Depart.' },
+            roomType: { aliases: ['rmtype', 'roomtype', 'rm-type'], original: 'RM-Type' },
+            source: { aliases: ['source'], original: 'Source' },
+            market: { aliases: ['market'], original: 'Market' },
+            country: { aliases: ['countrydesc', 'country'], original: 'Country Desc.' },
+            gender: { aliases: ['gen', 'gender'], original: 'Gen' },
+            name: { aliases: ['firstname', 'name', 'guestname'], original: 'FirstName' },
+            lastName: { aliases: ['lastname'], original: 'Last Name' },
+            email: { aliases: ['email', 'e-mail'], original: 'Email' },
+            paymentMethod: { aliases: ['payment', 'paymentmethod'], original: 'Payment' },
+            roomRevenue: { aliases: ['rmrev', 'roomrevenue', 'roomrev'], original: 'Rm Rev.' },
+            fandbRevenue: { aliases: ['fbrev', 'fandbrevenue', 'f&brev', 'fb-rev'], original: 'F&B Rev.' },
+            extraRevenue: { aliases: ['extrarev', 'extrarevenue'], original: 'Extra Rev.' }
+        };
+        const excelHeaders = dataAsArray[0].map(h => h ? String(h).trim() : '');
+        const normalizedExcelHeaders = excelHeaders.map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
+        const dataRows = dataAsArray.slice(1);
+        
+        const columnIndexMap = {};
+        for (const jsKey in headerPossibilities) {
+            const { aliases, original } = headerPossibilities[jsKey];
+            let foundIndex = -1;
+            for (const alias of aliases) {
+                const index = normalizedExcelHeaders.indexOf(alias);
+                if (index !== -1 && !Object.values(columnIndexMap).includes(index)) {
+                    foundIndex = index;
+                    break;
+                }
+            }
+            if (foundIndex !== -1) {
+                 columnIndexMap[jsKey] = foundIndex;
+            } else {
+                 console.warn(`คำเตือน: ไม่พบคอลัมน์สำหรับ '${original}'. ข้อมูลส่วนนี้จะถูกข้ามไป`);
+            }
+        }
+
+        return dataRows.map(row => {
+            let newRow = {};
+            for(const jsKey in columnIndexMap) {
+                const value = row[columnIndexMap[jsKey]];
+                if (['roomRevenue', 'fandbRevenue', 'extraRevenue'].includes(jsKey)) {
+                    const cleanString = String(value || '0').replace(/[^0-9.-]+/g,"");
+                    newRow[jsKey] = parseFloat(cleanString) || 0;
+                } else {
+                    newRow[jsKey] = value;
+                }
+            }
+            newRow.totalBill = (newRow.roomRevenue || 0) + (newRow.fandbRevenue || 0) + (newRow.extraRevenue || 0);
+            return newRow;
+        });
+    }
+
+    async function exportToPDF() {
+        const exportButton = $('#export-pdf-button');
+        const resetButton = $('#reset-button');
+        const originalButtonText = exportButton.html();
+        exportButton.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> กำลังสร้าง PDF...');
+        resetButton.prop('disabled', true);
+        
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const contentBlocks = $('.pdf-section');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const margin = 10;
+        let yPosition = margin;
+
+        for (const block of contentBlocks) {
+            if ($(block).height() === 0) continue;
+            await new Promise(resolve => setTimeout(resolve, 100));
+            const canvas = await html2canvas(block, { scale: 2, useCORS: true });
+            const imgData = canvas.toDataURL('image/png');
+            const imgProps = pdf.getImageProperties(imgData);
+            const imgHeight = (imgProps.height * (pdfWidth - margin * 2)) / imgProps.width;
+
+            if (yPosition + imgHeight > pdf.internal.pageSize.getHeight() - margin) {
+                pdf.addPage();
+                yPosition = margin;
+            }
+            pdf.addImage(imgData, 'PNG', margin, yPosition, pdfWidth - margin * 2, imgHeight);
+            yPosition += imgHeight + 5;
+        }
+        pdf.save('dashboard-report.pdf');
+        
+        exportButton.prop('disabled', false).html(originalButtonText);
+        resetButton.prop('disabled', false);
+    }
+    
+    // Initial call to start the background slider on page load
+    startBackgroundSlider();
+    </script>
+</body>
+</html>
