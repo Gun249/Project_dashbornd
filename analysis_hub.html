@@ -166,8 +166,8 @@
         let chartInstances = {};
         let workbook;
         let headerMappingModal = new bootstrap.Modal(document.getElementById('headerMappingModal'));
-        let guestDataArray = [];
         let allFilesData = [];
+        let processedGuestFiles = [];
         
         // --- HR ANALYSIS STATE ---
         let allParsedData_HR = [];
@@ -214,7 +214,6 @@
                      const firstFileWorkbook = allFilesData[0].workbook;
                      const worksheet = firstFileWorkbook.Sheets[sheetName];
                      const data = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '', raw: false });
-                     guestDataArray = data;
                      if(data[headerRow]) {
                         populateMappingModal(data[headerRow]);
                      }
@@ -344,11 +343,22 @@
                     if (fieldKey && selectedHeader) { userMapping[fieldKey] = selectedHeader; }
                 });
                 
-                if (allFilesData.length > 1) {
-                    runGuestComparison(userMapping);
-                } else {
-                    runGuestAnalysis(userMapping);
-                }
+                const headerRow = parseInt($('#header-row-input').val(), 10) - 1;
+                const sheetName = $('#sheet-select').val();
+                
+                processedGuestFiles = allFilesData.map(fileInfo => {
+                    const worksheet = fileInfo.workbook.Sheets[sheetName];
+                    if (!worksheet) {
+                        console.warn(`Sheet "${sheetName}" not found in file "${fileInfo.fileName}". Skipping.`);
+                        return null;
+                    }
+                    const dataArray = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '', raw: false });
+                    const mappedData = mapData_Guest(dataArray, userMapping, headerRow);
+                    return { fileName: fileInfo.fileName, data: mappedData };
+                }).filter(Boolean);
+                
+                renderDashboardLayout_Guest(processedGuestFiles);
+
                 headerMappingModal.hide();
                 $('#upload-section').hide();
                 $('#dashboard-container').show();
@@ -807,30 +817,84 @@
             const worksheet = workbook.Sheets[sheetName];
             const dataArray = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '', raw: false });
             const customerData = mapData_Guest(dataArray, userMapping, headerRow);
-            renderGuestDashboard(customerData);
+            renderSingleGuestDashboard(customerData);
         }
         
         function runGuestComparison(userMapping) {
-            const headerRow = parseInt($('#header-row-input').val(), 10) - 1;
-            const sheetName = $('#sheet-select').val();
-            
-            const processedFiles = allFilesData.map(fileInfo => {
-                const worksheet = fileInfo.workbook.Sheets[sheetName];
-                if (!worksheet) {
-                    console.warn(`Sheet "${sheetName}" not found in file "${fileInfo.fileName}". Skipping.`);
-                    return null;
-                }
-                const dataArray = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '', raw: false });
-                const mappedData = mapData_Guest(dataArray, userMapping, headerRow);
-                return { fileName: fileInfo.fileName, data: mappedData };
-            }).filter(Boolean);
-            
-            renderComparisonDashboard(processedFiles);
+            renderComparisonDashboard(processedGuestFiles, userMapping);
         }
+        
+        function renderDashboardLayout_Guest(processedFiles) {
+            destroyAllCharts();
+            let fileSelectorHtml = '';
+            if (processedFiles.length > 1) {
+                fileSelectorHtml = `
+                    <div class="col-md-4">
+                        <label for="mode-selector" class="form-label">โหมดการแสดงผล:</label>
+                        <select id="mode-selector" class="form-select">
+                            <option value="single">วิเคราะห์ไฟล์เดี่ยว</option>
+                            <option value="comparison">เปรียบเทียบทุกไฟล์</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4" id="single-file-selector-container">
+                        <label for="single-file-selector" class="form-label">เลือกไฟล์ที่จะแสดง:</label>
+                        <select id="single-file-selector" class="form-select">
+                            ${processedFiles.map(f => `<option value="${f.fileName}">${f.fileName.replace(/\.xlsx?$/, '')}</option>`).join('')}
+                        </select>
+                    </div>
+                `;
+            }
+
+            const content = `
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="row g-3 align-items-end">
+                                    ${fileSelectorHtml}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="dashboard-main-area"></div>
+            `;
+            
+            $('#dashboard-content').html(content);
+
+            $('#mode-selector').on('change', function() {
+                const selectedMode = $(this).val();
+                if (selectedMode === 'single') {
+                    $('#single-file-selector-container').show();
+                    $('#single-file-selector').trigger('change');
+                } else {
+                    $('#single-file-selector-container').hide();
+                    renderComparisonDashboard(processedFiles);
+                }
+            });
+
+            $('#single-file-selector').on('change', function() {
+                const selectedFileName = $(this).val();
+                const fileData = processedFiles.find(f => f.fileName === selectedFileName);
+                if (fileData) {
+                    renderSingleGuestDashboard(fileData.data);
+                }
+            });
+
+            // Initial render
+            if (processedFiles.length > 1) {
+                 $('#mode-selector').val('comparison').trigger('change');
+            } else {
+                 $('#single-file-selector').trigger('change');
+            }
+        }
+
 
         function renderComparisonDashboard(processedFiles) {
             destroyAllCharts();
             $('#dashboard-title').text(`เปรียบเทียบข้อมูลลูกค้า (${processedFiles.length} ไฟล์)`);
+            $('#dashboard-main-area').empty();
+
             let content = '<div class="row">';
             const allMetrics = processedFiles.map(file => ({
                 fileName: file.fileName.replace(/\.xlsx?$/, ''),
@@ -878,7 +942,7 @@
             });
             content += '</div>';
 
-            $('#dashboard-content').html(content);
+            $('#dashboard-main-area').html(content);
             
             comparisonCategories.forEach(cat => {
                  generateTopNComparisonChart(`compare-${cat.key}`, allMetrics, cat.key);
@@ -920,9 +984,8 @@
         }
 
 
-        function renderGuestDashboard(customerData) {
+        function renderSingleGuestDashboard(customerData) {
             destroyAllCharts();
-            $('#dashboard-title').text('แดชบอร์ดวิเคราะห์ข้อมูลลูกค้าโรงแรม');
             const metrics = calculateMetrics_Guest(customerData);
             const insights = generateInsights_Guest(metrics);
 
@@ -1002,7 +1065,7 @@
 
                 <div class="row mt-4"><div class="col-12"><div class="card"><div class="card-header">ข้อมูลลูกค้าทั้งหมด</div><div class="card-body"><div class="table-responsive"><table id="customerTable-guest" class="table table-striped table-bordered" style="width:100%"><thead></thead><tbody></tbody></table></div></div></div></div></div>
                 `;
-            $('#dashboard-content').html(content);
+            $('#dashboard-main-area').html(content);
             renderGuestStaticDashboard(customerData, metrics); 
             renderDynamicChartBuilder(customerData);
         }
