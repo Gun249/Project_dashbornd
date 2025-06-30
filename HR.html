@@ -4,7 +4,7 @@
     <!-- Basic HTML Document Setup -->
     <meta charset="UTF-8"> <!-- Set character set to UTF-8 to correctly support various languages and symbols -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- Set the viewport for responsive design, ensuring proper display on all devices -->
-    <title>HR Analysis Dashboard</title> <!-- The title displayed on the browser tab -->
+    <title>HR Data Analysis</title> <!-- The title displayed on the browser tab -->
 
     <!-- CSS Libraries: External stylesheets for page styling -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"> <!-- Bootstrap: A framework for layout, grid systems, and pre-built components -->
@@ -105,8 +105,8 @@
         
         <!-- Upload Section: For uploading the Excel file -->
         <div id="upload-section" class="upload-container">
-            <h1 class="mb-3">HR Analysis Dashboard</h1>
-            <p class="text-muted">กรุณาเลือกไฟล์ Excel เพื่อเริ่มการวิเคราะห์</p>
+            <h1 class="mb-3">HR Data Analysis</h1>
+            <p class="text-muted">Please select an Excel file to begin the analysis.</p>
             <hr class="my-4">
             <!-- File input, accepts .xlsx and .xls files -->
             <input type="file" id="excel-file-input" class="form-control form-control-lg" accept=".xlsx, .xls">
@@ -115,7 +115,7 @@
                 <div class="spinner-border text-primary" role="status">
                     <span class="visually-hidden">Loading...</span>
                 </div>
-                <p class="mt-2">กำลังประมวลผลไฟล์...</p>
+                <p class="mt-2">Processing file...</p>
             </div>
             <!-- Area to display errors during upload or processing -->
             <div id="upload-error" class="text-danger mt-3"></div>
@@ -125,8 +125,8 @@
         <div id="dashboard-container">
             <!-- Dashboard header with title and reset button -->
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1 id="dashboard-title" class="mb-0">Analysis Dashboard</h1>
-                <button id="reset-button" class="btn btn-secondary"><i class="bi bi-arrow-clockwise me-2"></i>เลือกไฟล์ใหม่</button>
+                <h1 id="dashboard-title" class="mb-0">HR Dashboard</h1>
+                <button id="reset-button" class="btn btn-secondary"><i class="bi bi-arrow-clockwise me-2"></i>Select New File</button>
             </div>
             <!-- The dashboard content will be dynamically generated and inserted here by JavaScript -->
             <div id="dashboard-content"></div> 
@@ -149,13 +149,26 @@
         Chart.defaults.font.family = "'Sarabun', sans-serif";
         Chart.defaults.plugins.datalabels.color = '#333';
         Chart.defaults.plugins.datalabels.font.weight = 'bold';
+        
+        // Increase tooltip font size globally
+        Chart.defaults.plugins.tooltip.titleFont = {
+            size: 16,
+            weight: 'bold',
+            family: "'Sarabun', sans-serif"
+        };
+        Chart.defaults.plugins.tooltip.bodyFont = {
+            size: 14,
+            family: "'Sarabun', sans-serif"
+        };
+        Chart.defaults.plugins.tooltip.padding = 10;
+
 
         // --- GLOBAL VARIABLES ---
         let chartInstances = {}; 
         let allParsedData = [];      
         let allTurnoverData = [];   
         let allServiceChargeData = []; 
-        let allOpdData = [];        
+        let allOpdData = [];       
 
         // --- CONSTANTS ---
         const HOTEL_CODES = ['CHRB', 'CRRB', 'CRST', 'ES', 'CGB', 'MHSC', 'MHRB', 'MMSB', 'SDAO', 'LKYT', 'CHRY', 'CNSJ', 'CHH'];
@@ -220,7 +233,7 @@
                     } catch (e) { console.warn("Could not parse Service Charge sheet:", e.message); }
                 }
 
-                // *** MODIFIED: Process ALL sheets starting with "OPD" ***
+                // Process ALL sheets starting with "OPD"
                 const opdSheetNames = workbook.SheetNames.filter(name => name.toLowerCase().trim().startsWith('opd'));
                 opdSheetNames.forEach(sheetName => {
                     try {
@@ -371,21 +384,30 @@
 
         /**
          * @name parseOpdData
-         * @description *** MODIFIED *** Parses data from an OPD sheet and adds a period extracted from the sheet name.
+         * @description Parses data from an OPD sheet and adds a period extracted from the sheet name.
          * @param {Array<Array<any>>} sheetData - Raw data from the sheet.
          * @param {string} sheetName - The name of the sheet to extract the period from.
-         * @returns {Array<Object>} - The parsed data, e.g., [{hotel: 'CHH', period: 'May-25', noOfEmployee: 123, ...}, ...]
+         * @returns {Array<Object>} - The parsed data.
          */
         function parseOpdData(sheetData, sheetName) {
             const parsedData = [];
-            // Extract period from sheet name like "OPD-May 25" -> "May-25"
-            const periodMatch = sheetName.match(/opd\s*[-]?\s*([a-zA-Z]{3,})\s*(\d{2})?/i);
-            if (!periodMatch) {
-                throw new Error(`Could not determine period from OPD sheet name: "${sheetName}"`);
+            
+            // --- MODIFIED: More robust regex to find any valid month name in the sheet title ---
+            const monthMatch = sheetName.match(/(Jan(uary)?|Feb(ruary)?|Mar(ch)?|Apr(il)?|May|Jun(e)?|Jul(y)?|Aug(ust)?|Sep(tember)?|Oct(ober)?|Nov(ember)?|Dec(ember)?)/i);
+            
+            if (!monthMatch) {
+                // If no recognizable month is found, we cannot proceed.
+                throw new Error(`Could not determine a valid month from OPD sheet name: "${sheetName}"`);
             }
-            const monthName = periodMatch[1];
-            const month = monthName.charAt(0).toUpperCase() + monthName.slice(1, 3).toLowerCase();
-            const year = periodMatch[2] || new Date().getFullYear().toString().slice(-2);
+            
+            // Standardize month to 3 letters, e.g., "January" -> "Jan"
+            const month = monthMatch[1].charAt(0).toUpperCase() + monthMatch[1].slice(1, 3).toLowerCase();
+            
+            // Look for a 2 or 4 digit year in the sheet name
+            const yearMatch = sheetName.match(/(\d{2,4})/);
+            // If a year is found, use its last two digits. Otherwise, default to the current year.
+            const year = yearMatch ? String(yearMatch[1]).slice(-2) : new Date().getFullYear().toString().slice(-2);
+            
             const period = `${month}-${year}`;
 
             const headerKeys = {
@@ -451,7 +473,7 @@
                     <div class="col-12">
                         <div class="card">
                             <div class="card-body">
-                                <label for="period-filter" class="form-label fw-bold">1. เลือกมุมมองข้อมูลหลัก</label>
+                                <label for="period-filter" class="form-label fw-bold">1. Select Main Data View</label>
                                 <select id="period-filter" class="form-select form-select-lg border-primary"></select>
                             </div>
                         </div>
@@ -461,18 +483,18 @@
                     <div class="col-12">
                         <div class="card">
                             <div class="card-body">
-                                <p class="form-label fw-bold">2. ตัวกรองรอง (ถ้ามี)</p>
+                                <p class="form-label fw-bold">2. Secondary Filters (Optional)</p>
                                 <div class="row g-3 align-items-end">
                                     <div class="col-md-4">
-                                        <label for="hotel-filter" class="form-label">โรงแรม</label>
+                                        <label for="hotel-filter" class="form-label">Hotel</label>
                                         <select id="hotel-filter" class="form-select"></select>
                                     </div>
                                     <div class="col-md-4">
-                                        <label for="type-filter" class="form-label">ประเภทพนักงาน</label>
+                                        <label for="type-filter" class="form-label">Employee Type</label>
                                         <select id="type-filter" class="form-select"></select>
                                     </div>
                                     <div class="col-md-4">
-                                        <button id="clear-secondary-filters" class="btn btn-outline-secondary w-100"><i class="bi bi-x-circle me-2"></i>ล้างตัวกรอง</button>
+                                        <button id="clear-secondary-filters" class="btn btn-outline-secondary w-100"><i class="bi bi-x-circle me-2"></i>Clear Filters</button>
                                     </div>
                                 </div>
                             </div>
@@ -517,11 +539,11 @@
             $('#hotel-filter').html(['All', ...allHotels].map(h => `<option value="${h}">${h}</option>`).join(''));
             $('#type-filter').html(types.map(t => `<option value="${t}">${t}</option>`).join(''));
             
-            let periodOptions = `<option value="" disabled selected>--- กรุณาเลือกมุมมอง ---</option>`;
-            if (allOpdData.length > 0) periodOptions += `<option value="ALL_OPD">ภาพรวม OPD</option>`;
-            if (allServiceChargeData.length > 0) periodOptions += `<option value="ALL_SERVICE_CHARGE">ภาพรวม Service Charge</option>`;
-            if (allTurnoverData.length > 0) periodOptions += `<option value="ALL_TURNOVER">ภาพรวม Turnover</option>`;
-            periodOptions += allPeriods.map(p => `<option value="${p}">ข้อมูลรายเดือนสำหรับ ${p}</option>`).join('');
+            let periodOptions = `<option value="" disabled selected>--- Please Select a View ---</option>`;
+            if (allOpdData.length > 0) periodOptions += `<option value="ALL_OPD">Overall OPD</option>`;
+            if (allServiceChargeData.length > 0) periodOptions += `<option value="ALL_SERVICE_CHARGE">Overall Service Charge</option>`;
+            if (allTurnoverData.length > 0) periodOptions += `<option value="ALL_TURNOVER">Overall Turnover</option>`;
+            periodOptions += allPeriods.map(p => `<option value="${p}">Monthly Data for ${p}</option>`).join('');
             $('#period-filter').html(periodOptions);
         }
 
@@ -539,14 +561,14 @@
                  $('#hotel-filter').parent().toggle(selectedPeriod !== 'ALL_SERVICE_CHARGE');
 
                 if (selectedPeriod === 'ALL_TURNOVER') {
-                     $('#main-content-area').append(`<div id="turnover-section" class="row mt-4"></div>`);
-                     updateTurnoverSection();
+                        $('#main-content-area').append(`<div id="turnover-section" class="row mt-4"></div>`);
+                        updateTurnoverSection();
                 } else if (selectedPeriod === 'ALL_SERVICE_CHARGE') {
-                     $('#main-content-area').append(`<div id="sc-section" class="row mt-4"></div>`);
-                     updateServiceChargeSection();
+                        $('#main-content-area').append(`<div id="sc-section" class="row mt-4"></div>`);
+                        updateServiceChargeSection();
                 } else if (selectedPeriod === 'ALL_OPD') {
-                     $('#main-content-area').append(`<div id="opd-section-wrapper" class="mt-4"></div>`);
-                     renderOverallOpdView();
+                        $('#main-content-area').append(`<div id="opd-section-wrapper" class="mt-4"></div>`);
+                        renderOverallOpdView();
                 } else {
                     // Monthly View
                     if (allParsedData.filter(d => d.period === selectedPeriod).length > 0) {
@@ -565,7 +587,7 @@
             } else {
                 $('#type-filter').parent().show();
                  $('#hotel-filter').parent().show();
-                $('#main-content-area').append(`<div id="initial-prompt" class="d-flex align-items-center justify-content-center text-muted filter-prompt"><h4><i class="bi bi-arrow-up-circle-fill me-2"></i>กรุณาเลือกมุมมองจากเมนูด้านบน</h4></div>`);
+                $('#main-content-area').append(`<div id="initial-prompt" class="d-flex align-items-center justify-content-center text-muted filter-prompt"><h4><i class="bi bi-arrow-up-circle-fill me-2"></i>Please select a view from the menu above</h4></div>`);
             }
         }
 
@@ -577,10 +599,10 @@
             const staffingHtml = `
                 <div class="row">
                     <div class="col-lg-8 mb-4"><div class="card"><div class="card-header" id="department-chart-title"></div><div class="card-body"><div class="staffing-chart-container"><canvas id="department-chart"></canvas></div></div></div></div>
-                    <div class="col-lg-4 mb-4"><div class="card"><div class="card-header">ตารางสรุป</div><div class="card-body"><div class="table-responsive" style="max-height: 450px;"><table class="table table-striped"><thead><tr><th>แผนก</th><th>จำนวน</th></tr></thead><tbody id="summary-table-body"></tbody><tfoot class="fw-bold"><tr><td>รวม</td><td id="summary-table-total"></td></tr></tfoot></table></div></div></div></div>
+                    <div class="col-lg-4 mb-4"><div class="card"><div class="card-header">Summary Table</div><div class="card-body"><div class="table-responsive" style="max-height: 450px;"><table class="table table-striped"><thead><tr><th>Department</th><th>Count</th></tr></thead><tbody id="summary-table-body"></tbody><tfoot class="fw-bold"><tr><td>Total</td><td id="summary-table-total"></td></tr></tfoot></table></div></div></div></div>
                 </div>
                 <div class="row mb-4">
-                    <div class="col-md-5"><label for="department-filter" class="form-label fw-bold">กรองตามแผนก (สำหรับกราฟด้านล่าง)</label><select id="department-filter" class="form-select"></select></div>
+                    <div class="col-md-5"><label for="department-filter" class="form-label fw-bold">Filter by Department (for chart below)</label><select id="department-filter" class="form-select"></select></div>
                 </div>
                 <div class="row"><div class="col-12 mb-4"><div class="card"><div class="card-header" id="monthly-chart-title"></div><div class="card-body"><div class="chart-container" style="height: 300px;"><canvas id="monthly-chart"></canvas></div></div></div></div></div>`;
             $('#staffing-section').html(staffingHtml);
@@ -603,7 +625,7 @@
             // Summary table
             const tableBody = $('#summary-table-body').empty();
             let total = 0;
-            if(sortedDepartments.length === 0){ tableBody.html('<tr><td colspan="2" class="text-center text-muted">ไม่พบข้อมูล</td></tr>'); }
+            if(sortedDepartments.length === 0){ tableBody.html('<tr><td colspan="2" class="text-center text-muted">No data found</td></tr>'); }
             else { sortedDepartments.forEach(([dept, value]) => { tableBody.append(`<tr><td>${dept}</td><td>${value.toLocaleString()}</td></tr>`); total += value; });}
             $('#summary-table-total').text(total.toLocaleString());
 
@@ -615,8 +637,8 @@
 
             // Update titles
             const format = (val, defaultVal) => (val === 'All' || !val) ? defaultVal : val;
-            $('#department-chart-title').text(`สรุปพนักงานตามแผนก (${format(selectedHotel, 'ทุกโรงแรม')}, ${format(selectedType, 'ทุกประเภท')}, ${format(selectedPeriod, '')})`);
-            $('#monthly-chart-title').text(`จำนวนพนักงานทั้งหมดต่อเดือน (${format(selectedHotel, 'ทุกโรงแรม')}, แผนก: ${format(selectedDepartment, 'ทั้งหมด')})`);
+            $('#department-chart-title').text(`Staffing by Department (${format(selectedHotel, 'All Hotels')}, ${format(selectedType, 'All Types')}, ${format(selectedPeriod, '')})`);
+            $('#monthly-chart-title').text(`Total Staffing per Month (${format(selectedHotel, 'All Hotels')}, Dept: ${format(selectedDepartment, 'All')})`);
         }
 
         /**
@@ -628,7 +650,7 @@
             const selectedPeriod = $('#period-filter').val();
 
             if (selectedPeriod && selectedPeriod !== 'ALL_TURNOVER' && selectedPeriod !== 'ALL_SERVICE_CHARGE' && selectedPeriod !== 'ALL_OPD') {
-                const turnoverHtml = `<div class="col-lg-8 mb-4"><div class="card h-100"><div class="card-header" id="turnover-chart-title"></div><div class="card-body"><div class="chart-container"><canvas id="turnover-chart"></canvas></div></div></div></div><div class="col-lg-4 mb-4"><div class="card h-100"><div class="card-header">ตารางสรุป Turnover</div><div class="card-body data-table-container"><table class="table table-striped"><thead><tr><th>โรงแรม</th><th>อัตรา Turnover</th></tr></thead><tbody id="turnover-summary-table-body"></tbody></table></div></div></div>`;
+                const turnoverHtml = `<div class="col-lg-8 mb-4"><div class="card h-100"><div class="card-header" id="turnover-chart-title"></div><div class="card-body"><div class="chart-container"><canvas id="turnover-chart"></canvas></div></div></div></div><div class="col-lg-4 mb-4"><div class="card h-100"><div class="card-header">Turnover Summary</div><div class="card-body data-table-container"><table class="table table-striped"><thead><tr><th>Hotel</th><th>Turnover Rate</th></tr></thead><tbody id="turnover-summary-table-body"></tbody></table></div></div></div>`;
                 $('#turnover-section').html(turnoverHtml);
 
                 const periodData = allTurnoverData.filter(d => d.period === selectedPeriod);
@@ -636,10 +658,10 @@
                 filteredData.sort((a, b) => b.turnover - a.turnover);
 
                 updateSimpleBarChartWithPercent('turnover-chart', 'bar', filteredData.map(d => d.hotel), filteredData.map(d => d.turnover), 'rgba(251, 99, 64, 0.7)', 'y');
-                $('#turnover-chart-title').text(`อัตรา Turnover สำหรับ ${selectedPeriod}`);
+                $('#turnover-chart-title').text(`Turnover Rate for ${selectedPeriod}`);
 
                 const tableBody = $('#turnover-summary-table-body').empty();
-                if (filteredData.length === 0) { tableBody.html('<tr><td colspan="2" class="text-center text-muted">ไม่พบข้อมูล</td></tr>'); } 
+                if (filteredData.length === 0) { tableBody.html('<tr><td colspan="2" class="text-center text-muted">No data found</td></tr>'); } 
                 else { filteredData.forEach(d => { tableBody.append(`<tr><td>${d.hotel}</td><td>${d.turnover.toFixed(1)}%</td></tr>`); });}
             } else { // Overall view
                 const turnoverHtml = `<div class="col-12 mb-4"><div class="card"><div class="card-header" id="turnover-table-title"></div><div class="card-body data-table-container"><table class="table table-bordered table-sm"><thead id="turnover-table-head"></thead><tbody id="turnover-table-body"></tbody></table></div></div></div><div class="col-12 mb-4"><div class="card"><div class="card-header" id="turnover-chart-title"></div><div class="card-body"><div class="chart-container" style="height: 500px;"><canvas id="turnover-chart"></canvas></div></div></div></div>`;
@@ -649,7 +671,7 @@
                 const allPeriods = [...new Set(filteredData.map(d => d.period))].sort((a, b) => parsePeriodToDate(a) - parsePeriodToDate(b));
                 const hotelsInSelection = [...new Set(filteredData.map(d => d.hotel))].sort();
 
-                let tableHead = `<tr><th>เดือน</th>${hotelsInSelection.map(h => `<th>${h}</th>`).join('')}</tr>`;
+                let tableHead = `<tr><th>Month</th>${hotelsInSelection.map(h => `<th>${h}</th>`).join('')}</tr>`;
                 $('#turnover-table-head').html(tableHead);
 
                 let tableBody = allPeriods.map(p => {
@@ -661,7 +683,7 @@
                     return rowHtml + `</tr>`;
                 }).join('');
                 $('#turnover-table-body').html(tableBody);
-                $('#turnover-table-title').text(`ตารางอัตรา Turnover (${selectedHotel === 'All' ? 'ทุกโรงแรม' : selectedHotel})`);
+                $('#turnover-table-title').text(`Turnover Rate Table (${selectedHotel === 'All' ? 'All Hotels' : selectedHotel})`);
 
                 const datasets = hotelsInSelection.map((hotel, index) => ({
                     label: hotel,
@@ -671,8 +693,8 @@
                     fill: false,
                     tension: 0.1
                 }));
-                updateGroupedBarChart('turnover-chart', allPeriods, datasets);
-                $('#turnover-chart-title').text(`อัตรา Turnover รายเดือน (${selectedHotel === 'All' ? 'ทุกโรงแรม' : selectedHotel})`);
+                updateGroupedBarChart('turnover-chart', allPeriods, datasets, { isPercentage: true });
+                $('#turnover-chart-title').text(`Monthly Turnover Rate (${selectedHotel === 'All' ? 'All Hotels' : selectedHotel})`);
             }
         }
 
@@ -681,13 +703,13 @@
          * @description Updates the Service Charge section. This is always an "overall" view.
          */
         function updateServiceChargeSection() {
-            const scHtml = `<div class="col-12 mb-4"><div class="card"><div class="card-header" id="sc-table-title">Service Charge รายเดือน</div><div class="card-body data-table-container sc-table-container"><table class="table table-bordered table-sm sc-table"><thead id="sc-table-head"></thead><tbody id="sc-table-body"></tbody></table></div></div></div><div class="col-12 mb-4"><div class="card"><div class="card-header">Service Charge เฉลี่ย</div><div class="card-body"><div class="chart-container" style="height: 450px;"><canvas id="avg-sc-chart"></canvas></div></div></div></div>`;
+            const scHtml = `<div class="col-12 mb-4"><div class="card"><div class="card-header" id="sc-table-title">Monthly Service Charge</div><div class="card-body data-table-container sc-table-container"><table class="table table-bordered table-sm sc-table"><thead id="sc-table-head"></thead><tbody id="sc-table-body"></tbody></table></div></div></div><div class="col-12 mb-4"><div class="card"><div class="card-header">Average Service Charge</div><div class="card-body"><div class="chart-container" style="height: 450px;"><canvas id="avg-sc-chart"></canvas></div></div></div></div>`;
             $('#sc-section').html(scHtml);
             
             const hotels = [...new Set(allServiceChargeData.map(d => d.hotel))].sort();
             const periods = [...new Set(allServiceChargeData.map(d => d.period))].sort((a,b) => parsePeriodToDate(a) - parsePeriodToDate(b));
             
-            let tableHead = `<tr><th>เดือน</th>`;
+            let tableHead = `<tr><th>Month</th>`;
             hotels.forEach(h => tableHead += `<th>${h}</th>`);
             tableHead += `</tr>`;
             $('#sc-table-head').html(tableHead);
@@ -733,14 +755,14 @@
                             <div class="card-body pb-0">
                                 <div class="row align-items-end">
                                     <div class="col-md-5">
-                                        <label for="opd-metric-filter" class="form-label fw-bold">ตัวชี้วัด</label>
+                                        <label for="opd-metric-filter" class="form-label fw-bold">Metric</label>
                                         <select id="opd-metric-filter" class="form-select mb-3">
-                                            <option value="totalClaims" selected>ยอดเคลมทั้งหมด</option>
-                                            <option value="medical">ค่ารักษาพยาบาล</option><option value="dental">ค่าทันตกรรม</option>
-                                            <option value="avgPerHead">เฉลี่ยต่อคน</option><option value="noOfEmployee">จำนวนพนักงาน</option>
+                                            <option value="totalClaims" selected>Total Claims</option>
+                                            <option value="medical">Medical</option><option value="dental">Dental</option>
+                                            <option value="avgPerHead">Average Per Head</option><option value="noOfEmployee">No. of Employees</option>
                                         </select>
                                     </div>
-                                    <div class="col-md-7"><h4 class="text-end text-muted mb-3">สรุปข้อมูล OPD สำหรับ ${selectedPeriod}</h4></div>
+                                    <div class="col-md-7"><h4 class="text-end text-muted mb-3">OPD Summary for ${selectedPeriod}</h4></div>
                                 </div>
                             </div>
                         </div>
@@ -761,15 +783,15 @@
                     <div class="col-12 mb-4">
                          <div class="card"><div class="card-body pb-0"><div class="row align-items-center">
                             <div class="col-md-5">
-                                <label for="opd-metric-filter" class="form-label fw-bold">ตัวชี้วัด</label>
+                                <label for="opd-metric-filter" class="form-label fw-bold">Metric</label>
                                 <select id="opd-metric-filter" class="form-select">
-                                    <option value="totalClaims" selected>ยอดเคลมทั้งหมด</option>
-                                    <option value="medical">ค่ารักษาพยาบาล</option><option value="dental">ค่าทันตกรรม</option>
-                                    <option value="avgPerHead">เฉลี่ยต่อคน</option><option value="noOfEmployee">จำนวนพนักงาน</option>
+                                    <option value="totalClaims" selected>Total Claims</option>
+                                    <option value="medical">Medical</option><option value="dental">Dental</option>
+                                    <option value="avgPerHead">Average Per Head</option><option value="noOfEmployee">No. of Employees</option>
                                 </select>
                             </div>
                             <div class="col-md-5">
-                                <label for="opd-month-filter" class="form-label fw-bold">กรองตามเดือน</label>
+                                <label for="opd-month-filter" class="form-label fw-bold">Filter by Month</label>
                                 <select id="opd-month-filter" class="form-select"></select>
                             </div>
                         </div></div></div>
@@ -829,8 +851,8 @@
                             <div class="card"><div class="card-header" id="opd-table-title"></div>
                                 <div class="card-body data-table-container"><table class="table table-striped table-hover">
                                     <thead><tr>
-                                        <th>โรงแรม</th><th class="text-end">จำนวนพนักงาน</th><th class="text-end">ค่ารักษาพยาบาล</th>
-                                        <th class="text-end">ค่าทันตกรรม</th><th class="text-end">ยอดเคลมทั้งหมด</th><th class="text-end">เฉลี่ยต่อคน</th>
+                                        <th>Hotel</th><th class="text-end">Employees</th><th class="text-end">Medical</th>
+                                        <th class="text-end">Dental</th><th class="text-end">Total Claims</th><th class="text-end">Avg/Head</th>
                                     </tr></thead><tbody id="opd-table-body"></tbody>
                                 </table></div>
                             </div>
@@ -842,11 +864,14 @@
                 const container = $('#opd-section-wrapper #opd-dynamic-content').length ? $('#opd-section-wrapper #opd-dynamic-content') : $('#opd-section-wrapper');
                 container.html(singleMonthHtml);
                 
+                // Sort data for the table view (descending)
+                const sortedTableData = [...dataToDisplay].sort((a,b) => (b[selectedMetric] || 0) - (a[selectedMetric] || 0));
+                
                 const tableBody = $('#opd-table-body').empty();
-                if (dataToDisplay.length === 0) {
-                    tableBody.html('<tr><td colspan="6" class="text-center text-muted">ไม่พบข้อมูล</td></tr>');
+                if (sortedTableData.length === 0) {
+                    tableBody.html('<tr><td colspan="6" class="text-center text-muted">No data found</td></tr>');
                 } else {
-                    dataToDisplay.sort((a,b) => b[selectedMetric] - a[selectedMetric]).forEach(d => {
+                    sortedTableData.forEach(d => {
                         tableBody.append(`<tr><td class="fw-bold">${d.hotel}</td>
                             <td class="text-end">${(d.noOfEmployee || 0).toLocaleString()}</td>
                             <td class="text-end">${(d.medical || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
@@ -856,12 +881,16 @@
                    });
                 }
                 
-                $('#opd-table-title').text(`ข้อมูล OPD สำหรับ ${filterPeriod} (${selectedHotel === 'All' ? 'ทุกโรงแรม' : selectedHotel})`);
-                const sortedChartData = [...dataToDisplay].sort((a, b) => (a[selectedMetric] || 0) - (b[selectedMetric] || 0));
+                $('#opd-table-title').text(`OPD Data for ${filterPeriod} (${selectedHotel === 'All' ? 'All Hotels' : selectedHotel})`);
+                
+                // Sort data for the chart view (descending, so highest is at the top in a horizontal bar chart)
+                const sortedChartData = [...dataToDisplay].sort((a, b) => (b[selectedMetric] || 0) - (a[selectedMetric] || 0));
+
                 const chartLabels = sortedChartData.map(d => d.hotel);
                 const chartData = sortedChartData.map(d => d[selectedMetric] || 0);
-                updateBarChart('opd-chart', 'bar', chartLabels, chartData, '#fb6340', 'y'); // Horizontal chart
-                $('#opd-chart-title').text(`${metricLabel} สำหรับ ${filterPeriod} (${selectedHotel === 'All' ? 'ทุกโรงแรม' : selectedHotel})`);
+                updateBarChart('opd-chart', 'bar', chartLabels, chartData, '#fb6340', 'y');
+
+                $('#opd-chart-title').text(`${metricLabel} for ${filterPeriod} (${selectedHotel === 'All' ? 'All Hotels' : selectedHotel})`);
 
             } else {
                 // RENDER OVERALL MULTI-MONTH VIEW
@@ -885,7 +914,7 @@
                 const allPeriods = [...new Set(dataToDisplay.map(d => d.period))].sort((a, b) => parsePeriodToDate(a) - parsePeriodToDate(b));
                 const hotelsInSelection = [...new Set(dataToDisplay.map(d => d.hotel))].sort();
 
-                let tableHead = `<tr><th>เดือน</th>${hotelsInSelection.map(h => `<th>${h}</th>`).join('')}</tr>`;
+                let tableHead = `<tr><th>Month</th>${hotelsInSelection.map(h => `<th>${h}</th>`).join('')}</tr>`;
                 $('#opd-table-head').html(tableHead);
 
                 let tableBody = allPeriods.map(p => {
@@ -899,7 +928,7 @@
                     return rowHtml + `</tr>`;
                 }).join('');
                 $('#opd-table-body').html(tableBody);
-                $('#opd-table-title').text(`ตารางข้อมูล OPD: ${metricLabel} (${selectedHotel === 'All' ? 'ทุกโรงแรม' : selectedHotel})`);
+                $('#opd-table-title').text(`OPD Data Table: ${metricLabel} (${selectedHotel === 'All' ? 'All Hotels' : selectedHotel})`);
 
                 const datasets = hotelsInSelection.map((hotel, index) => ({
                     label: hotel,
@@ -907,18 +936,35 @@
                     backgroundColor: CHART_COLORS[index % CHART_COLORS.length],
                 }));
                 updateGroupedBarChart('opd-chart', allPeriods, datasets, {isOpd: true, metric: selectedMetric});
-                $('#opd-chart-title').text(`${metricLabel} รายเดือน (${selectedHotel === 'All' ? 'ทุกโรงแรม' : selectedHotel})`);
+                $('#opd-chart-title').text(`Monthly ${metricLabel} (${selectedHotel === 'All' ? 'All Hotels' : selectedHotel})`);
             }
         }
 
 
         // --- CHARTING UTILITIES ---
         
+        /**
+         * @name numberFormatter
+         * @description Formats a number into a shorter string representation (k for thousands, M for millions)
+         * by truncating to two decimal places instead of rounding.
+         * @param {number} value - The number to format.
+         * @returns {string} The formatted number string.
+         */
         const numberFormatter = (value) => {
-             if (value === null || typeof value === 'undefined') return '';
-             if (Math.abs(value) >= 1000000) return (value / 1000000).toFixed(1) + 'M';
-             if (Math.abs(value) >= 1000) return (value / 1000).toFixed(1) + 'k';
-             return value.toLocaleString('en-US', {maximumFractionDigits: 0});
+            if (value === null || typeof value === 'undefined') return '';
+            
+            if (Math.abs(value) >= 1000000) {
+                // Truncate to 2 decimal places for millions
+                const truncated = Math.floor((value / 1000000) * 100) / 100;
+                return truncated.toFixed(2) + 'M';
+            }
+            if (Math.abs(value) >= 1000) {
+                // Truncate to 2 decimal places for thousands
+                const truncated = Math.floor((value / 1000) * 100) / 100;
+                return truncated.toFixed(2) + 'k';
+            }
+            // For numbers less than 1000, show with commas and no decimals.
+            return value.toLocaleString('en-US', {maximumFractionDigits: 0});
         };
 
         /**
@@ -928,44 +974,65 @@
         function updateBarChart(chartId, type, labels, data, color, axis = 'x') {
             if (chartInstances[chartId]) chartInstances[chartId].destroy();
             const chartContainer = $(`#${chartId}`).parent();
-            if(labels.length === 0) {
-                chartContainer.html('<div class="d-flex align-items-center justify-content-center h-100 text-muted">No data found</div>'); return;
-            } else { chartContainer.html(`<canvas id="${chartId}"></canvas>`); }
+            if (labels.length === 0 || data.every(d => d === 0 || d === null)) {
+                chartContainer.html('<div class="d-flex align-items-center justify-content-center h-100 text-muted">No data found</div>');
+                return;
+            } else {
+                chartContainer.html(`<canvas id="${chartId}"></canvas>`);
+            }
             
             const ctx = document.getElementById(chartId).getContext('2d');
-            const options = { 
-                responsive: true, maintainAspectRatio: false, indexAxis: axis,
-                plugins: { 
-                    legend: {display: false},
-                    datalabels: { 
+            
+            const options = {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: axis,
+                plugins: {
+                    legend: { display: false },
+                    datalabels: {
                         display: true,
                         anchor: 'end',
-                        align: 'end', 
+                        align: axis === 'y' ? 'end' : 'top',
                         offset: 4,
                         color: '#495057',
                         font: {
                             weight: 'bold'
                         },
                         formatter: function(value) {
-                             if (!value || value === 0) return '';
-                             return numberFormatter(value);
+                            if (!value || value === 0) return '';
+                            return numberFormatter(value);
                         }
-                    } 
+                    }
                 },
-                scales: {
-                    x: {
-                        grid: { display: axis === 'y'},
-                         ticks: { 
-                             callback: v => numberFormatter(v)
-                         }
-                    },
-                    y: {
-                        grid: { display: axis === 'x'},
+                scales: {}
+            };
+
+            const valueAxisConfig = {
+                grid: { display: true },
+                ticks: {
+                    callback: function(value) {
+                        return numberFormatter(value);
                     }
                 }
             };
+
+            const categoryAxisConfig = {
+                grid: { display: false }
+            };
+
+            if (axis === 'y') { // Horizontal chart
+                options.scales.x = valueAxisConfig;
+                options.scales.y = categoryAxisConfig;
+            } else { // Vertical chart ('x')
+                options.scales.y = valueAxisConfig;
+                options.scales.x = categoryAxisConfig;
+            }
             
-            chartInstances[chartId] = new Chart(ctx, { type, data: { labels, datasets: [{ label: 'Value', data, backgroundColor: color }] }, options });
+            chartInstances[chartId] = new Chart(ctx, { 
+                type: type, 
+                data: { labels, datasets: [{ label: 'Value', data, backgroundColor: color }] }, 
+                options: options 
+            });
         }
 
         /**
@@ -1000,7 +1067,7 @@
 
         /**
          * @name updateGroupedBarChart
-         * @description A function for creating grouped bar charts, now with options for OPD formatting.
+         * @description A function for creating grouped bar charts.
          */
         function updateGroupedBarChart(chartId, labels, datasets, formatOptions = {}) {
             if (chartInstances[chartId]) chartInstances[chartId].destroy();
@@ -1010,8 +1077,7 @@
             } else { chartContainer.html(`<canvas id="${chartId}"></canvas>`); }
             
             const ctx = document.getElementById(chartId).getContext('2d');
-            const isOpdInt = formatOptions.isOpd && formatOptions.metric === 'noOfEmployee';
-
+            
             chartInstances[chartId] = new Chart(ctx, {
                 type: 'bar', data: { labels, datasets },
                 options: {
@@ -1022,16 +1088,17 @@
                             display: true,
                             rotation: 0,
                             color: '#495057',
-                            font: {
-                                size: 9
-                            },
+                            font: { size: 9 },
                             align: 'top',
                             anchor: 'end',
                              offset: 4,
                             formatter: (value) => {
                                 if (value === null || value === 0) return '';
-                                if(formatOptions.isOpd && !isOpdInt) {
-                                    return value.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                                if (formatOptions.isPercentage) {
+                                    return value.toFixed(1) + '%';
+                                }
+                                if (formatOptions.isOpd && formatOptions.metric === 'avgPerHead') {
+                                    return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                                 }
                                 return numberFormatter(value);
                             }
@@ -1040,19 +1107,27 @@
                             label: ctx => {
                                 const val = ctx.parsed.y;
                                 let label = ctx.dataset.label || '';
-                                if(val === null || val === undefined) return `${label}: N/A`;
+                                if (val === null || val === undefined) return `${label}: N/A`;
                                 
-                                if(formatOptions.isOpd) {
-                                    return `${label}: ${isOpdInt ? val.toLocaleString() : val.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                                if (formatOptions.isPercentage) {
+                                    return `${label}: ${val.toFixed(2)}%`;
                                 }
-                                // Default for turnover/percentage
-                                return `${label}: ${val.toFixed(2)}%`;
+                                // If it's an OPD chart, show the full, locale-formatted number.
+                                if (formatOptions.isOpd) {
+                                    const fractionDigits = formatOptions.metric === 'avgPerHead' || formatOptions.metric === 'medical' || formatOptions.metric === 'dental' || formatOptions.metric === 'totalClaims' ? 2 : 0;
+                                    return `${label}: ${val.toLocaleString('en-US', { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits })}`;
+                                }
+                                // Fallback for other charts
+                                return `${label}: ${numberFormatter(val)}`;
                             }
                         }}
                     },
                     scales: { y: { beginAtZero: true, ticks: { 
                         callback: v => {
-                           return numberFormatter(v);
+                            if (formatOptions.isPercentage) {
+                                return v + '%';
+                            }
+                            return numberFormatter(v);
                         }
                     }}}
                 }
@@ -1092,18 +1167,15 @@
                 return `${monthNames[periodCell.getMonth()]}-${String(periodCell.getFullYear()).slice(-2)}`;
             }
             let periodRaw = String(periodCell || '').trim();
-            // Use a stricter regex to only match valid month names (3 letters or full name)
             const monthMatch = periodRaw.match(/(Jan(uary)?|Feb(ruary)?|Mar(ch)?|Apr(il)?|May|Jun(e)?|Jul(y)?|Aug(ust)?|Sep(tember)?|Oct(ober)?|Nov(ember)?|Dec(ember)?)/i);
 
             if (monthMatch) {
                 const yearMatch = periodRaw.match(/(\d{2,4})/);
-                // Default to current year if not specified
                 const year = yearMatch ? String(yearMatch[1]).slice(-2) : '25'; // Default to current year '25'
-                // Standardize month to 3 letters
                 const month = monthMatch[1].charAt(0).toUpperCase() + monthMatch[1].slice(1, 3).toLowerCase();
                 return `${month}-${year}`;
             }
-            return null; // Return null if no valid month pattern is found
+            return null;
         }
 
         function parsePeriodToDate(periodString) {
@@ -1113,12 +1185,11 @@
                 const month = monthNames.findIndex(m => m.toLowerCase() === match[1].toLowerCase());
                 if (month !== -1) {
                     let year = parseInt(match[2]);
-                    // Handle century pivot for 2-digit years
                     year += (year < 70 ? 2000 : 1900);
                     return new Date(year, month, 1);
                 }
             }
-            return new Date(0); // Return a very old date for invalid formats to sort them last
+            return new Date(0);
         }
     });
     </script>
