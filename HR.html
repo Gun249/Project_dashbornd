@@ -392,20 +392,15 @@
         function parseOpdData(sheetData, sheetName) {
             const parsedData = [];
             
-            // --- MODIFIED: More robust regex to find any valid month name in the sheet title ---
             const monthMatch = sheetName.match(/(Jan(uary)?|Feb(ruary)?|Mar(ch)?|Apr(il)?|May|Jun(e)?|Jul(y)?|Aug(ust)?|Sep(tember)?|Oct(ober)?|Nov(ember)?|Dec(ember)?)/i);
             
             if (!monthMatch) {
-                // If no recognizable month is found, we cannot proceed.
                 throw new Error(`Could not determine a valid month from OPD sheet name: "${sheetName}"`);
             }
             
-            // Standardize month to 3 letters, e.g., "January" -> "Jan"
             const month = monthMatch[1].charAt(0).toUpperCase() + monthMatch[1].slice(1, 3).toLowerCase();
             
-            // Look for a 2 or 4 digit year in the sheet name
             const yearMatch = sheetName.match(/(\d{2,4})/);
-            // If a year is found, use its last two digits. Otherwise, default to the current year.
             const year = yearMatch ? String(yearMatch[1]).slice(-2) : new Date().getFullYear().toString().slice(-2);
             
             const period = `${month}-${year}`;
@@ -779,23 +774,21 @@
          */
         function renderOverallOpdView() {
             const opdHtml = `
-                <div class="row">
-                    <div class="col-12 mb-4">
-                         <div class="card"><div class="card-body pb-0"><div class="row align-items-center">
-                            <div class="col-md-5">
-                                <label for="opd-metric-filter" class="form-label fw-bold">Metric</label>
-                                <select id="opd-metric-filter" class="form-select">
-                                    <option value="totalClaims" selected>Total Claims</option>
-                                    <option value="medical">Medical</option><option value="dental">Dental</option>
-                                    <option value="avgPerHead">Average Per Head</option><option value="noOfEmployee">No. of Employees</option>
-                                </select>
-                            </div>
-                            <div class="col-md-5">
-                                <label for="opd-month-filter" class="form-label fw-bold">Filter by Month</label>
-                                <select id="opd-month-filter" class="form-select"></select>
-                            </div>
-                        </div></div></div>
+                <div class="row mb-4 g-3 align-items-end">
+                    <div class="col-md-5">
+                        <label for="opd-metric-filter" class="form-label fw-bold">Metric</label>
+                        <select id="opd-metric-filter" class="form-select">
+                            <option value="totalClaims" selected>Total Claims</option>
+                            <option value="medical">Medical</option><option value="dental">Dental</option>
+                            <option value="avgPerHead">Average Per Head</option><option value="noOfEmployee">No. of Employees</option>
+                        </select>
                     </div>
+                    <div class="col-md-5">
+                        <label for="opd-month-filter" class="form-label fw-bold">Filter by Month</label>
+                        <select id="opd-month-filter" class="form-select"></select>
+                    </div>
+                </div>
+                <div class="row">
                     <div id="opd-dynamic-content" class="col-12"></div>
                 </div>`;
             $('#opd-section-wrapper').html(opdHtml);
@@ -883,13 +876,12 @@
                 
                 $('#opd-table-title').text(`OPD Data for ${filterPeriod} (${selectedHotel === 'All' ? 'All Hotels' : selectedHotel})`);
                 
-                // Sort data for the chart view (descending, so highest is at the top in a horizontal bar chart)
-                const sortedChartData = [...dataToDisplay].sort((a, b) => (b[selectedMetric] || 0) - (a[selectedMetric] || 0));
+                // Sort data for the chart view (ascending, so highest is at the top in a horizontal bar chart)
+                const sortedChartData = [...dataToDisplay].sort((a, b) => (a[selectedMetric] || 0) - (b[selectedMetric] || 0));
 
                 const chartLabels = sortedChartData.map(d => d.hotel);
                 const chartData = sortedChartData.map(d => d[selectedMetric] || 0);
-                updateBarChart('opd-chart', 'bar', chartLabels, chartData, '#fb6340', 'y');
-
+                updateBarChart('opd-chart', 'bar', chartLabels, chartData, '#fb6340', 'y'); // Horizontal chart
                 $('#opd-chart-title').text(`${metricLabel} for ${filterPeriod} (${selectedHotel === 'All' ? 'All Hotels' : selectedHotel})`);
 
             } else {
@@ -968,6 +960,27 @@
         };
 
         /**
+         * @name calculateAxisMax
+         * @description Calculates a "nice" maximum value for a chart axis to provide headroom.
+         * @param {Array<number>} data - The dataset for the axis.
+         * @param {boolean} isPercentage - Flag to indicate if the data is a percentage.
+         * @returns {number|undefined} The calculated maximum value for the axis.
+         */
+        function calculateAxisMax(data, isPercentage = false) {
+            const dataMax = Math.max(...data.filter(d => d !== null && isFinite(d)));
+            if (dataMax <= 0) return undefined; // No need for a max if all data is zero or less
+
+            if (isPercentage) {
+                if (dataMax >= 95) return 100;
+                // Round up to the nearest 10 for percentages
+                return Math.ceil(dataMax / 10) * 10;
+            } else {
+                // Add a 20% buffer for regular numbers
+                return dataMax * 1.2;
+            }
+        }
+
+        /**
          * @name updateBarChart
          * @description A central function for creating/updating bar charts.
          */
@@ -1009,6 +1022,7 @@
 
             const valueAxisConfig = {
                 grid: { display: true },
+                max: calculateAxisMax(data, false), // Use the new helper function
                 ticks: {
                     callback: function(value) {
                         return numberFormatter(value);
@@ -1059,7 +1073,11 @@
                         tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.formattedValue}%` } }
                     },
                     scales: { 
-                        [valueAxis]: { beginAtZero: true, ticks: { callback: v => v + '%' } } 
+                        [valueAxis]: { 
+                            beginAtZero: true, 
+                            max: calculateAxisMax(data, true), // Use the new helper function for percentages
+                            ticks: { callback: v => v + '%' } 
+                        } 
                     }
                 }
             });
@@ -1078,6 +1096,9 @@
             
             const ctx = document.getElementById(chartId).getContext('2d');
             
+            // Combine all data from all datasets to find the true maximum
+            const allData = datasets.flatMap(ds => ds.data);
+
             chartInstances[chartId] = new Chart(ctx, {
                 type: 'bar', data: { labels, datasets },
                 options: {
@@ -1122,14 +1143,20 @@
                             }
                         }}
                     },
-                    scales: { y: { beginAtZero: true, ticks: { 
-                        callback: v => {
-                            if (formatOptions.isPercentage) {
-                                return v + '%';
+                    scales: { 
+                        y: { 
+                            beginAtZero: true, 
+                            max: calculateAxisMax(allData, formatOptions.isPercentage), // Use the helper on the combined data
+                            ticks: { 
+                                callback: v => {
+                                    if (formatOptions.isPercentage) {
+                                        return v + '%';
+                                    }
+                                    return numberFormatter(v);
+                                }
                             }
-                            return numberFormatter(v);
                         }
-                    }}}
+                    }
                 }
             });
         }
@@ -1195,3 +1222,4 @@
     </script>
 </body>
 </html>
+    
