@@ -53,7 +53,7 @@
         <!-- Upload View -->
         <div id="upload-view">
             <div class="upload-container">
-                <b><h1 class="mb-3">CPP Data Analysis</h1></b>
+                <h1 class="mb-3">CPP Data Analysis</h1>
                 <p class="text-muted">Please upload an Excel file (.xlsx, .xls) to get started.</p>
                 <hr class="my-4">
                 <input type="file" id="excel-input" class="form-control form-control-lg" accept=".xlsx, .xls">
@@ -67,58 +67,61 @@
 
         <!-- Dashboard View -->
         <div id="dashboard-view" class="d-none">
-            <header class="mb-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
-                <div>
-                    <b><h1 class="mb-0">CPP Data Analysis</h1></b>
-                    <p id="file-info" class="text-muted mt-1">Overview of customer point redemptions.</p>
-                </div>
-                <div class="d-flex gap-2" id="dashboard-actions">
-                    <button id="export-pdf-button" class="btn btn-danger"><i class="bi bi-file-earmark-pdf-fill me-2"></i>Export to PDF</button>
-                    <button id="upload-new-button" class="btn btn-secondary"><i class="bi bi-arrow-clockwise me-2"></i>Upload New File</button>
-                </div>
-            </header>
+            <div id="pdf-capture-area">
+                <header class="mb-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                    <div>
+                        <h1 class="mb-0">CPP Data Analysis</h1>
+                        <p id="file-info" class="text-muted mt-1">Overview of customer point redemptions.</p>
+                    </div>
+                    <div class="d-flex gap-2" id="dashboard-actions">
+                        <button id="export-csv-button" class="btn btn-success"><i class="bi bi-file-earmark-spreadsheet-fill me-2"></i>Export to CSV</button>
+                        <button id="export-pdf-button" class="btn btn-danger"><i class="bi bi-file-earmark-pdf-fill me-2"></i>Export to PDF</button>
+                        <button id="upload-new-button" class="btn btn-secondary"><i class="bi bi-arrow-clockwise me-2"></i>Upload New File</button>
+                    </div>
+                </header>
 
-            <!-- KPIs Section: 3 per row -->
-            <div class="row mb-4">
-                <div class="col-md-4 col-sm-6 mb-4 kpi-card"><div class="card"><div class="card-body text-center p-4"><h2 class="text-muted fs-6 mb-2">Total Redemptions</h2><p id="total-redemptions" class="h2 fw-bold text-primary mb-0">0</p></div></div></div>
-                <div class="col-md-4 col-sm-6 mb-4 kpi-card"><div class="card"><div class="card-body text-center p-4"><h2 class="text-muted fs-6 mb-2">Unique Customers</h2><p id="unique-customers" class="h2 fw-bold text-primary mb-0">0</p></div></div></div>
-                <div class="col-md-4 col-sm-6 mb-4 kpi-card"><div class="card"><div class="card-body text-center p-4"><h2 class="text-muted fs-6 mb-2">Total Points Used</h2><p id="total-points" class="h2 fw-bold text-warning mb-0">0</p></div></div></div>
-                <div class="col-md-4 col-sm-6 mb-4 kpi-card"><div class="card"><div class="card-body text-center p-4"><h2 class="text-muted fs-6 mb-2">Avg Points/Redemption</h2><p id="avg-points" class="h2 fw-bold text-warning mb-0">0</p></div></div></div>
-                <div class="col-md-4 col-sm-6 mb-4 kpi-card"><div class="card"><div class="card-body text-center p-4"><h2 class="text-muted fs-6 mb-2">Total Revenue</h2><p id="total-revenue" class="h2 fw-bold text-success mb-0">0</p></div></div></div>
-                <div class="col-md-4 col-sm-6 mb-4 kpi-card"><div class="card"><div class="card-body text-center p-4"><h2 class="text-muted fs-6 mb-2">Total Product Value</h2><p id="total-value" class="h2 fw-bold text-info mb-0">0</p></div></div></div>
-            </div>
-            
-            <!-- Charts Section -->
-            <div class="row mb-4">
-                <div class="col-lg-7 mb-4">
-                    <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <span>Redeemed Products</span>
-                            <select id="top-products-filter" class="form-select form-select-sm w-auto">
-                                <option value="count">By Redemption Count</option>
-                                <option value="value">By Total Value</option>
-                            </select>
-                        </div>
-                        <div class="card-body">
-                            <div class="chart-container" style="height: 500px;">
-                                <canvas id="topProductsChart"></canvas>
+                <!-- KPIs Section: 3 per row -->
+                <div class="row mb-4">
+                    <div class="col-md-4 col-sm-6 mb-4 kpi-card"><div class="card"><div class="card-body text-center p-4"><h2 class="text-muted fs-6 mb-2">Total Redemptions</h2><p id="total-redemptions" class="h2 fw-bold text-primary mb-0">0</p></div></div></div>
+                    <div class="col-md-4 col-sm-6 mb-4 kpi-card"><div class="card"><div class="card-body text-center p-4"><h2 class="text-muted fs-6 mb-2">Unique Customers</h2><p id="unique-customers" class="h2 fw-bold text-primary mb-0">0</p></div></div></div>
+                    <div class="col-md-4 col-sm-6 mb-4 kpi-card"><div class="card"><div class="card-body text-center p-4"><h2 class="text-muted fs-6 mb-2">Total Points Used</h2><p id="total-points" class="h2 fw-bold text-warning mb-0">0</p></div></div></div>
+                    <div class="col-md-4 col-sm-6 mb-4 kpi-card"><div class="card"><div class="card-body text-center p-4"><h2 class="text-muted fs-6 mb-2">Avg Points/Redemption</h2><p id="avg-points" class="h2 fw-bold text-warning mb-0">0</p></div></div></div>
+                    <div class="col-md-4 col-sm-6 mb-4 kpi-card"><div class="card"><div class="card-body text-center p-4"><h2 class="text-muted fs-6 mb-2">Total Revenue</h2><p id="total-revenue" class="h2 fw-bold text-success mb-0">0</p></div></div></div>
+                    <div class="col-md-4 col-sm-6 mb-4 kpi-card"><div class="card"><div class="card-body text-center p-4"><h2 class="text-muted fs-6 mb-2">Total Product Value</h2><p id="total-value" class="h2 fw-bold text-info mb-0">0</p></div></div></div>
+                </div>
+                
+                <!-- Charts Section -->
+                <div class="row mb-4">
+                    <div class="col-lg-7 mb-4">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span>Redeemed Products</span>
+                                <select id="top-products-filter" class="form-select form-select-sm w-auto">
+                                    <option value="count">By Redemption Count</option>
+                                    <option value="value">By Total Value</option>
+                                </select>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container" style="height: 500px;">
+                                    <canvas id="topProductsChart"></canvas>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="col-lg-5 mb-4">
-                     <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                           <span>Redemption by Product Type</span>
-                            <select id="product-type-filter" class="form-select form-select-sm w-auto">
-                                <option value="count">By Redemption Count</option>
-                                <option value="revenue">By Revenue</option>
-                                <option value="value">By Value</option>
-                            </select>
-                        </div>
-                        <div class="card-body d-flex align-items-center justify-content-center">
-                            <div class="chart-container" style="height: 500px;">
-                                <canvas id="productTypeChart"></canvas>
+                    <div class="col-lg-5 mb-4">
+                         <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                               <span>Redemption by Product Type</span>
+                                <select id="product-type-filter" class="form-select form-select-sm w-auto">
+                                    <option value="count">By Redemption Count</option>
+                                    <option value="revenue">By Revenue</option>
+                                    <option value="value">By Value</option>
+                                </select>
+                            </div>
+                            <div class="card-body d-flex align-items-center justify-content-center">
+                                <div class="chart-container" style="height: 500px;">
+                                    <canvas id="productTypeChart"></canvas>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -160,11 +163,31 @@
                 </div>
             </div>
             
-            <footer class="text-center text-sm text-muted mt-5"><p id="footer-text">Customer Redemption Dashboard © 2024</p></footer>
+            <footer class="text-center text-sm text-muted mt-5"><p id="footer-text">Chatrium Point Plus © 2024</p></footer>
         </div>
     </div>
+    
+    <!-- Sheet Selection Modal -->
+    <div class="modal fade" id="sheet-select-modal" tabindex="-1" aria-labelledby="sheetSelectModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="sheetSelectModalLabel">Select a Sheet to Analyze</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p>This Excel file contains multiple sheets. Please choose the one you want to load.</p>
+            <div id="sheet-list" class="list-group">
+              <!-- Sheet names will be injected here -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
 
     <!-- JS Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
@@ -182,6 +205,8 @@
         let sortKey = 'id';
         let sortDir = 'asc';
         let chartInstances = {};
+        let workbook;
+        let currentFileName = '';
 
         // --- DOM ELEMENTS ---
         const getEl = (id) => document.getElementById(id);
@@ -196,6 +221,7 @@
         const uploadErrorEl = getEl('upload-error');
         const uploadNewButton = getEl('upload-new-button');
         const exportPdfButton = getEl('export-pdf-button');
+        const exportCsvButton = getEl('export-csv-button');
         const filterProperty = getEl('filter-property');
         const filterGuestOf = getEl('filter-guest-of');
         const filterType = getEl('filter-type');
@@ -204,6 +230,8 @@
         const productTypeFilter = getEl('product-type-filter');
         const loadingSpinner = getEl('loading-spinner');
         const clearFiltersButton = getEl('clear-filters-button');
+        const sheetSelectModal = new bootstrap.Modal(getEl('sheet-select-modal'));
+        const sheetList = getEl('sheet-list');
         // KPIs
         const totalRedemptionsEl = getEl('total-redemptions');
         const uniqueCustomersEl = getEl('unique-customers');
@@ -388,7 +416,7 @@
             }, {});
 
             const sortedProducts = Object.entries(productMetrics)
-                .sort(([, a], [, b]) => b[filterBy] - a[filterBy]); // Sort descending
+                .sort(([, a], [, b]) => b[filterBy] - a[filterBy]);
 
             const labels = sortedProducts.map(([name]) => name);
             const values = sortedProducts.map(([, metrics]) => metrics[filterBy]);
@@ -481,6 +509,22 @@
         }
 
         // --- FILE & EXPORT ---
+        function processSheet(sheetName) {
+            try {
+                const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {raw: false});
+                const transformedData = transformDataFromExcel(jsonData);
+                updateDashboard(transformedData);
+                fileInfoEl.textContent = `Data from file: ${currentFileName} (Sheet: ${sheetName})`;
+                uploadView.classList.add('d-none');
+                dashboardView.classList.remove('d-none');
+            } catch (error) {
+                uploadErrorEl.textContent = "Error processing sheet: " + error.message;
+            } finally {
+                sheetSelectModal.hide();
+                loadingSpinner.style.display = 'none';
+            }
+        }
+        
         function updateDashboard(data) {
             currentData = data;
             populateFilters(data);
@@ -490,22 +534,32 @@
         function handleFileSelection(event) {
             const file = event.target.files[0];
             if (!file) return;
+            currentFileName = file.name;
             loadingSpinner.style.display = 'block';
             uploadErrorEl.textContent = '';
             
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
-                    const workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-                    const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {raw: false});
-                    updateDashboard(transformDataFromExcel(jsonData));
-                    fileInfoEl.textContent = `Data from file: ${file.name}`;
-                    uploadView.classList.add('d-none');
-                    dashboardView.classList.remove('d-none');
-                } catch (error) { 
-                    uploadErrorEl.textContent = "Error processing file: " + error.message; 
-                } finally { 
-                    loadingSpinner.style.display = 'none'; 
+                    workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                    if (workbook.SheetNames.length === 1) {
+                        processSheet(workbook.SheetNames[0]);
+                    } else {
+                        sheetList.innerHTML = '';
+                        workbook.SheetNames.forEach(name => {
+                            const button = document.createElement('button');
+                            button.type = 'button';
+                            button.className = 'list-group-item list-group-item-action';
+                            button.textContent = name;
+                            button.onclick = () => processSheet(name);
+                            sheetList.appendChild(button);
+                        });
+                        sheetSelectModal.show();
+                        loadingSpinner.style.display = 'none';
+                    }
+                } catch (error) {
+                    uploadErrorEl.textContent = "Error reading file: " + error.message;
+                    loadingSpinner.style.display = 'none';
                 }
             };
             reader.onerror = () => { uploadErrorEl.textContent = "Could not read file."; loadingSpinner.style.display = 'none';};
@@ -514,16 +568,49 @@
         }
 
         function transformDataFromExcel(jsonData) {
-            const headerMapping = { "no": "id", "redeem property": "redeemProperty", "guest of": "guestOf", "member": "member", "name": "name", "product name": "productName", "product type": "productType", "date": "date", "point required": "pointRequired", "revenue": "revenue", "value of product": "value" };
-            const cleanKey = (key) => key.toString().toLowerCase().trim();
+            if (!jsonData || jsonData.length === 0) {
+                throw new Error("The selected sheet is empty or contains no data.");
+            }
+
+            const flexibleHeaderMapping = {
+                id: ['no', 'id'],
+                redeemProperty: ['redeem property', 'property', 'hotel'],
+                guestOf: ['guest of'],
+                member: ['member', 'member id', 'member no', 'member #'],
+                name: ['name', 'guest name', 'member name'],
+                productName: ['product name', 'item', 'product'],
+                productType: ['product type', 'category'],
+                date: ['date', 'redeem date'],
+                pointRequired: ['point required', 'points', 'points used'],
+                revenue: ['revenue'],
+                value: ['value of product', 'value']
+            };
+            const requiredKeys = ['member', 'productName', 'pointRequired'];
             
+            const actualHeaders = Object.keys(jsonData[0]);
+            const dynamicMap = {};
+
+            for (const jsKey in flexibleHeaderMapping) {
+                const aliases = flexibleHeaderMapping[jsKey];
+                const foundHeader = actualHeaders.find(originalHeader => 
+                    aliases.includes(originalHeader.toLowerCase().trim())
+                );
+                if (foundHeader) {
+                    dynamicMap[jsKey] = foundHeader;
+                }
+            }
+
+            for (const key of requiredKeys) {
+                if (!dynamicMap[key]) {
+                    throw new Error(`Required column missing. Please ensure the file has a column for: ${key} (or its aliases).`);
+                }
+            }
+
             return jsonData.map(row => {
                 const newRow = {};
-                const rowKeys = Object.keys(row);
-                for (const excelHeader in headerMapping) {
-                    const jsKey = headerMapping[excelHeader];
-                    const foundKey = rowKeys.find(rk => cleanKey(rk) === excelHeader);
-                    newRow[jsKey] = foundKey ? row[foundKey] : null;
+                for (const jsKey in dynamicMap) {
+                    const originalHeader = dynamicMap[jsKey];
+                    newRow[jsKey] = row[originalHeader] !== undefined ? row[originalHeader] : null;
                 }
                 newRow.pointRequired = Number(newRow.pointRequired) || 0;
                 newRow.revenue = Number(newRow.revenue) || 0;
@@ -531,62 +618,95 @@
                 return newRow;
             });
         }
+        
+        function exportTableToCSV() {
+            if (filteredData.length === 0) {
+                alert("No data to export.");
+                return;
+            }
+
+            const headers = ["No", "Redeem Property", "Guest of", "Member", "Name", "Product Name", "Product Type", "Point Required", "Revenue", "Value of product"];
+            const escapeCSV = (value) => {
+                const str = String(value === null || value === undefined ? '' : value);
+                if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                    return `"${str.replace(/"/g, '""')}"`;
+                }
+                return str;
+            };
+
+            const csvRows = [
+                headers.join(','),
+                ...filteredData.map(row => [
+                    escapeCSV(row.id), escapeCSV(row.redeemProperty), escapeCSV(row.guestOf),
+                    escapeCSV(row.member), escapeCSV(row.name), escapeCSV(row.productName),
+                    escapeCSV(row.productType), escapeCSV(row.pointRequired),
+                    escapeCSV(row.revenue), escapeCSV(row.value)
+                ].join(','))
+            ];
+
+            const csvString = csvRows.join('\n');
+            const blob = new Blob([`\uFEFF${csvString}`], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", "redemption_data.csv");
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
 
         async function exportDashboardAsPDF() {
             const { jsPDF } = window.jspdf;
-            const dashboardElement = document.getElementById('dashboard-view');
+            const captureArea = document.getElementById('pdf-capture-area');
             const actionsElement = document.getElementById('dashboard-actions');
             
-            const originalScrollX = window.scrollX;
-            const originalScrollY = window.scrollY;
-
-            // Show a simple alert to the user
             const exportButtonText = exportPdfButton.innerHTML;
             exportPdfButton.disabled = true;
             exportPdfButton.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Exporting...`;
 
-
-            // Temporarily hide buttons and scroll to top for consistent capture
             actionsElement.style.visibility = 'hidden';
-            window.scrollTo(0, 0);
 
-            // Use html2canvas to capture the dashboard
-            const canvas = await html2canvas(dashboardElement, {
-                scale: 2,
-                useCORS: true,
-                logging: false,
-                windowWidth: dashboardElement.scrollWidth,
-                windowHeight: dashboardElement.scrollHeight
-            });
-
-            // Restore visibility of buttons and original scroll position
+            const canvas = await html2canvas(captureArea, { scale: 2, useCORS: true, logging: false });
+            
             actionsElement.style.visibility = 'visible';
-            window.scrollTo(originalScrollX, originalScrollY);
+            
+            const imgData = canvas.toDataURL('image/png');
+            const imgWidth = 190;
+            const imgHeight = canvas.height * imgWidth / canvas.width;
+            
+            const doc = new jsPDF('p', 'mm', 'a4');
+            doc.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
+            
+            let tableStartY = imgHeight + 20;
+
+            if (tableStartY > 280) {
+                doc.addPage();
+                tableStartY = 15;
+            }
+
+            doc.setFont('Sarabun-Regular');
+            doc.setFontSize(12);
+
+            const head = [['No', 'Property', 'Guest Of', 'Member', 'Name', 'Product', 'Type', 'Points', 'Revenue', 'Value']];
+            const body = filteredData.map(row => [
+                row.id, row.redeemProperty, row.guestOf, row.member, row.name,
+                row.productName, row.productType, row.pointRequired.toLocaleString(),
+                row.revenue.toFixed(2), row.value.toFixed(2)
+            ]);
+
+            doc.autoTable({
+                head: head,
+                body: body,
+                startY: tableStartY + 5,
+                theme: 'grid',
+                styles: { font: 'Sarabun-Regular', fontStyle: 'normal', fontSize: 7, cellPadding: 1.5 },
+                headStyles: { fillColor: [93, 120, 255], textColor: 255, fontStyle: 'bold' },
+                alternateRowStyles: { fillColor: [247, 248, 250] }
+            });
+            
             exportPdfButton.disabled = false;
             exportPdfButton.innerHTML = exportButtonText;
-
-            // Calculate image dimensions for PDF
-            const imgData = canvas.toDataURL('image/png');
-            const imgWidth = 210; // A4 width in mm
-            const pageHeight = 295; // A4 height in mm
-            const imgHeight = canvas.height * imgWidth / canvas.width;
-            let heightLeft = imgHeight;
-
-            const doc = new jsPDF('p', 'mm', 'a4');
-            let position = 0;
-
-            // Add the first page
-            doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-            heightLeft -= pageHeight;
-
-            // Add new pages if the content is taller than one page
-            while (heightLeft > 0) {
-              position -= pageHeight; // Move the image "up" on the new page
-              doc.addPage();
-              doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-              heightLeft -= pageHeight;
-            }
-            
             doc.save('dashboard-export.pdf');
         }
 
@@ -597,11 +717,14 @@
             Chart.defaults.plugins.tooltip.titleFont = { size: 14 };
             Chart.defaults.plugins.tooltip.bodyFont = { size: 12 };
 
-            getEl('footer-text').innerHTML = `Chatrium © ${new Date().getFullYear()}`;
+            getEl('footer-text').innerHTML = `Chatrium Point Plus © ${new Date().getFullYear()}`;
 
             excelInput.addEventListener('change', handleFileSelection);
             uploadNewButton.addEventListener('click', () => { window.location.reload(); });
             exportPdfButton.addEventListener('click', exportDashboardAsPDF);
+            if(exportCsvButton) {
+                exportCsvButton.addEventListener('click', exportTableToCSV);
+            }
             searchInput.addEventListener('input', handleFiltersAndSearch);
             filterProperty.addEventListener('change', handleFiltersAndSearch);
             filterGuestOf.addEventListener('change', handleFiltersAndSearch);
