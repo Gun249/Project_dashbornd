@@ -5,17 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CPP Data Analysis</title>
     
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- CSS Libraries -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     
-        <style>
+    <!-- Custom Styles -->
+    <style>
         body {
             background: linear-gradient(to top, #f7f8fa 0%, #eef1f5 100%);
             font-family: 'Sarabun', sans-serif;
             color: #495057;
         }
-                .card {
+        .upload-container {
+            max-width: 700px; margin: 5rem auto; padding: 2.5rem;
+            background-color: #ffffff; border-radius: 1.5rem;
+            box-shadow: 0 15px 35px rgba(50,50,93,.1),0 5px 15px rgba(0,0,0,.07);
+            text-align: center; border: 1px solid #dee2e6;
+        }
+        .card {
             border: none;
             box-shadow: 0 15px 35px rgba(50,50,93,.08),0 5px 15px rgba(0,0,0,.05);
             border-radius: 20px; height: 100%;
@@ -36,27 +44,29 @@
         .sortable-header:hover { background-color: #f8f9fa; }
         .sort-asc::after { content: ' ▲'; font-size: 0.8em; }
         .sort-desc::after { content: ' ▼'; font-size: 0.8em; }
-.no-data-container {
-            max-width: 700px; margin: 5rem auto; padding: 2.5rem;
-            background-color: #ffffff; border-radius: 1.5rem;
-            box-shadow: 0 15px 35px rgba(50,50,93,.1),0 5px 15px rgba(0,0,0,.07);
-            text-align: center; border: 1px solid #dee2e6;
-        }
     </style>
 </head>
 <body>
 
     <div class="container-fluid p-4">
         
-                <div id="no-data-view" class="no-data-container" style="display: none;">
-                <h1 class="mb-3 text-danger">ไม่พบข้อมูล (No Data Found)</h1>
-                <p class="text-muted">ไม่พบข้อมูลที่ส่งมาจากหน้าหลัก กรุณากลับไปที่หน้า Portal เพื่ออัปโหลดไฟล์</p>
+        <!-- Upload View -->
+        <div id="upload-view">
+            <div class="upload-container">
+                <h1 class="mb-3">CPP Data Analysis</h1>
+                <p class="text-muted">Please upload an Excel file (.xlsx, .xls) to get started.</p>
                 <hr class="my-4">
-                <a href="index.html" class="btn btn-primary btn-lg">กลับไปหน้าหลัก (Back to Portal)</a>
+                <input type="file" id="excel-input" class="form-control form-control-lg" accept=".xlsx, .xls">
+                <div id="loading-spinner" class="text-center mt-4" style="display: none;">
+                    <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+                    <p class="mt-2">Processing file...</p>
+                </div>
+                <div id="upload-error" class="text-danger mt-3"></div>
+            </div>
         </div>
 
-        
-        <div id="dashboard-view" style="display: none;">
+        <!-- Dashboard View -->
+        <div id="dashboard-view" class="d-none">
             <div id="pdf-capture-area">
                 <header class="mb-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
                     <div>
@@ -66,11 +76,12 @@
                     <div class="d-flex gap-2" id="dashboard-actions">
                         <button id="export-csv-button" class="btn btn-success"><i class="bi bi-file-earmark-spreadsheet-fill me-2"></i>Export to CSV</button>
                         <button id="export-pdf-button" class="btn btn-danger"><i class="bi bi-file-earmark-pdf-fill me-2"></i>Export to PDF</button>
-                        <a href="index.html" class="btn btn-secondary"><i class="bi bi-house-door-fill me-2"></i>กลับไปหน้าหลัก</a>
+                        <button id="upload-new-button" class="btn btn-secondary"><i class="bi bi-arrow-clockwise me-2"></i>Upload New File</button>
                     </div>
                 </header>
 
-                                <div class="row mb-4">
+                <!-- KPIs Section: 3 per row -->
+                <div class="row mb-4">
                     <div class="col-md-4 col-sm-6 mb-4 kpi-card"><div class="card"><div class="card-body text-center p-4"><h2 class="text-muted fs-6 mb-2">Total Redemptions</h2><p id="total-redemptions" class="h2 fw-bold text-primary mb-0">0</p></div></div></div>
                     <div class="col-md-4 col-sm-6 mb-4 kpi-card"><div class="card"><div class="card-body text-center p-4"><h2 class="text-muted fs-6 mb-2">Unique Customers</h2><p id="unique-customers" class="h2 fw-bold text-primary mb-0">0</p></div></div></div>
                     <div class="col-md-4 col-sm-6 mb-4 kpi-card"><div class="card"><div class="card-body text-center p-4"><h2 class="text-muted fs-6 mb-2">Total Points Used</h2><p id="total-points" class="h2 fw-bold text-warning mb-0">0</p></div></div></div>
@@ -79,7 +90,8 @@
                     <div class="col-md-4 col-sm-6 mb-4 kpi-card"><div class="card"><div class="card-body text-center p-4"><h2 class="text-muted fs-6 mb-2">Total Product Value</h2><p id="total-value" class="h2 fw-bold text-info mb-0">0</p></div></div></div>
                 </div>
                 
-                                <div class="row mb-4">
+                <!-- Charts Section -->
+                <div class="row mb-4">
                     <div class="col-lg-7 mb-4">
                         <div class="card">
                             <div class="card-header d-flex justify-content-between align-items-center">
@@ -116,7 +128,8 @@
                 </div>
             </div>
 
-                        <div class="card">
+            <!-- Data Table Section -->
+            <div class="card">
                 <div class="card-body p-4">
                     <div class="row g-3 align-items-end mb-4">
                         <div class="col-lg-2 col-md-6"><label for="filter-property" class="form-label">Redeem Property</label><select id="filter-property" class="form-select"><option value="">All</option></select></div>
@@ -154,7 +167,8 @@
         </div>
     </div>
     
-        <div class="modal fade" id="sheet-select-modal" tabindex="-1" aria-labelledby="sheetSelectModalLabel" aria-hidden="true">
+    <!-- Sheet Selection Modal -->
+    <div class="modal fade" id="sheet-select-modal" tabindex="-1" aria-labelledby="sheetSelectModalLabel" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
           <div class="modal-header">
@@ -164,29 +178,25 @@
           <div class="modal-body">
             <p>This Excel file contains multiple sheets. Please choose the one you want to load.</p>
             <div id="sheet-list" class="list-group">
-                          </div>
+              <!-- Sheet names will be injected here -->
+            </div>
           </div>
         </div>
       </div>
     </div>
 
 
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- JS Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="https://unpkg.com/jspdf-autotable@3.5.28/dist/jspdf.plugin.autotable.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/parn-pon/thaifont-jspdf/Sarabun-Regular-normal.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <script>
-// --- INITIAL CHART.JS SETUP (RUNS FIRST) ---
-        Chart.register(ChartDataLabels);
-        Chart.defaults.font.family = "'Sarabun', sans-serif";
-        Chart.defaults.plugins.tooltip.titleFont = { size: 14 };
-        Chart.defaults.plugins.tooltip.bodyFont = { size: 12 };
-
         // --- GLOBAL STATE ---
         let currentData = [];
         let filteredData = [];
@@ -196,17 +206,21 @@
         let sortDir = 'asc';
         let chartInstances = {};
         let workbook;
-        
+        let currentFileName = '';
+
         // --- DOM ELEMENTS ---
         const getEl = (id) => document.getElementById(id);
-        const noDataView = getEl('no-data-view');
+        const uploadView = getEl('upload-view');
         const dashboardView = getEl('dashboard-view');
         const tableBody = getEl('data-table-body');
         const tableHeader = getEl('table-header');
         const searchInput = getEl('search-input');
         const noResultsEl = getEl('no-results');
-                const fileInfoEl = getEl('file-info');
-                const exportPdfButton = getEl('export-pdf-button');
+        const excelInput = getEl('excel-input');
+        const fileInfoEl = getEl('file-info');
+        const uploadErrorEl = getEl('upload-error');
+        const uploadNewButton = getEl('upload-new-button');
+        const exportPdfButton = getEl('export-pdf-button');
         const exportCsvButton = getEl('export-csv-button');
         const filterProperty = getEl('filter-property');
         const filterGuestOf = getEl('filter-guest-of');
@@ -214,7 +228,8 @@
         const paginationControls = getEl('pagination-controls');
         const topProductsFilter = getEl('top-products-filter');
         const productTypeFilter = getEl('product-type-filter');
-                const clearFiltersButton = getEl('clear-filters-button');
+        const loadingSpinner = getEl('loading-spinner');
+        const clearFiltersButton = getEl('clear-filters-button');
         const sheetSelectModal = new bootstrap.Modal(getEl('sheet-select-modal'));
         const sheetList = getEl('sheet-list');
         // KPIs
@@ -494,19 +509,20 @@
         }
 
         // --- FILE & EXPORT ---
-        function processSheet(sheetName, userMapping) {
+        function processSheet(sheetName) {
             try {
                 const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {raw: false});
-                const transformedData = transformDataFromExcel(jsonData, userMapping);
+                const transformedData = transformDataFromExcel(jsonData);
                 updateDashboard(transformedData);
-                fileInfoEl.textContent = `Data from pre-loaded file (Sheet: ${sheetName})`;
-                            } catch (error) {
-                alert("Error processing sheet: " + error.message);
-                noDataView.style.display = 'block';
-                dashboardView.style.display = 'none';
+                fileInfoEl.textContent = `Data from file: ${currentFileName} (Sheet: ${sheetName})`;
+                uploadView.classList.add('d-none');
+                dashboardView.classList.remove('d-none');
+            } catch (error) {
+                uploadErrorEl.textContent = "Error processing sheet: " + error.message;
             } finally {
                 sheetSelectModal.hide();
-                            }
+                loadingSpinner.style.display = 'none';
+            }
         }
         
         function updateDashboard(data) {
@@ -515,34 +531,47 @@
             handleFiltersAndSearch();
         }
 
-        function transformDataFromExcel(jsonData, userMapping) {
+        function handleFileSelection(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            currentFileName = file.name;
+            loadingSpinner.style.display = 'block';
+            uploadErrorEl.textContent = '';
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                    if (workbook.SheetNames.length === 1) {
+                        processSheet(workbook.SheetNames[0]);
+                    } else {
+                        sheetList.innerHTML = '';
+                        workbook.SheetNames.forEach(name => {
+                            const button = document.createElement('button');
+                            button.type = 'button';
+                            button.className = 'list-group-item list-group-item-action';
+                            button.textContent = name;
+                            button.onclick = () => processSheet(name);
+                            sheetList.appendChild(button);
+                        });
+                        sheetSelectModal.show();
+                        loadingSpinner.style.display = 'none';
+                    }
+                } catch (error) {
+                    uploadErrorEl.textContent = "Error reading file: " + error.message;
+                    loadingSpinner.style.display = 'none';
+                }
+            };
+            reader.onerror = () => { uploadErrorEl.textContent = "Could not read file."; loadingSpinner.style.display = 'none';};
+            reader.readAsArrayBuffer(file);
+            excelInput.value = '';
+        }
+
+        function transformDataFromExcel(jsonData) {
             if (!jsonData || jsonData.length === 0) {
                 throw new Error("The selected sheet is empty or contains no data.");
             }
 
-// Scenario 1: User has provided an explicit mapping
-            if (userMapping && Object.keys(userMapping).length > 0) {
-                const requiredKeys = ['member', 'productName', 'pointRequired'];
-                for (const key of requiredKeys) {
-                    if (!userMapping[key]) {
-                        throw new Error(`Required column mapping missing. Please go back and map the field for: ${key}`);
-                    }
-                }
-                
-                return jsonData.map(row => {
-                    const newRow = {};
-                    for (const appKey in userMapping) {
-                        const userColumnName = userMapping[appKey];
-                        newRow[appKey] = row[userColumnName] !== undefined ? row[userColumnName] : null;
-                    }
-                    newRow.pointRequired = Number(newRow.pointRequired) || 0;
-                    newRow.revenue = Number(newRow.revenue) || 0;
-                    newRow.value = Number(newRow.value) || 0;
-                    return newRow;
-                });
-            }
-
-            // Scenario 2: No mapping provided, fall back to original flexible (alias-based) logic
             const flexibleHeaderMapping = {
                 id: ['no', 'id'],
                 redeemProperty: ['redeem property', 'property', 'hotel'],
@@ -683,46 +712,16 @@
 
         // --- INITIALIZATION ---
         function init() {
-            try {
-                const workbookData = sessionStorage.getItem('analysisData_workbook');
-                const userMappingJSON = sessionStorage.getItem('userColumnMapping');
-                const userMapping = userMappingJSON ? JSON.parse(userMappingJSON) : null;
-
-                if (workbookData) {
-                    dashboardView.style.display = 'block';
-                    const parsedData = JSON.parse(workbookData);
-                    workbook = { SheetNames: parsedData.sheetNames, Sheets: parsedData.sheets };
-
-                    sessionStorage.removeItem('analysisData_workbook'); 
-                    if(userMappingJSON) sessionStorage.removeItem('userColumnMapping');
-                    
-                    if (workbook.SheetNames.length === 1) {
-                        processSheet(workbook.SheetNames[0], userMapping);
-                    } else {
-                        sheetList.innerHTML = '';
-                        workbook.SheetNames.forEach(name => {
-                            const button = document.createElement('button');
-                            button.type = 'button';
-                            button.className = 'list-group-item list-group-item-action';
-                            button.textContent = name;
-                            button.onclick = () => processSheet(name, userMapping);
-                            sheetList.appendChild(button);
-                        });
-                        sheetSelectModal.show();
-                    }
-                } else {
-                    noDataView.style.display = 'block';
-                    dashboardView.style.display = 'none';
-                }
-            } catch (e) {
-                console.error("Error processing pre-loaded data:", e);
-                noDataView.style.display = 'block';
-                dashboardView.style.display = 'none';
-            }
+            Chart.register(ChartDataLabels);
+            Chart.defaults.font.family = "'Sarabun', sans-serif";
+            Chart.defaults.plugins.tooltip.titleFont = { size: 14 };
+            Chart.defaults.plugins.tooltip.bodyFont = { size: 12 };
 
             getEl('footer-text').innerHTML = `Chatrium Point Plus © ${new Date().getFullYear()}`;
 
-                        exportPdfButton.addEventListener('click', exportDashboardAsPDF);
+            excelInput.addEventListener('change', handleFileSelection);
+            uploadNewButton.addEventListener('click', () => { window.location.reload(); });
+            exportPdfButton.addEventListener('click', exportDashboardAsPDF);
             if(exportCsvButton) {
                 exportCsvButton.addEventListener('click', exportTableToCSV);
             }

@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CPP Data Analysis</title>
+    
+    <!-- CSS Libraries -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    <!-- Custom Styles -->
+    <style>
+        body {
+            background: linear-gradient(to top, #f7f8fa 0%, #eef1f5 100%);
+            font-family: 'Sarabun', sans-serif;
+            color: #495057;
+        }
+        .upload-container {
+            max-width: 700px; margin: 5rem auto; padding: 2.5rem;
+            background-color: #ffffff; border-radius: 1.5rem;
+            box-shadow: 0 15px 35px rgba(50,50,93,.1),0 5px 15px rgba(0,0,0,.07);
+            text-align: center; border: 1px solid #dee2e6;
+        }
+        .card {
+            border: none;
+            box-shadow: 0 15px 35px rgba(50,50,93,.08),0 5px 15px rgba(0,0,0,.05);
+            border-radius: 20px; height: 100%;
+        }
+        .card-header {
+            background: linear-gradient(to right, #5d78ff, #4392f1);
+            color: white; font-weight: bold; border-top-left-radius: 20px;
+            border-top-right-radius: 20px; border-bottom: none; padding: 1rem 1.5rem;
+        }
+        .kpi-card .card-body { transition: transform 0.2s, box-shadow 0.2s; }
+        .kpi-card:hover .card-body { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(50,50,93,.1); }
+        .chart-container { position: relative; width: 100%; }
+        .form-select:focus, .form-control:focus {
+            border-color: #5d78ff;
+            box-shadow: 0 0 0 0.25rem rgba(93, 120, 255, 0.25);
+        }
+        .sortable-header { cursor: pointer; user-select: none; }
+        .sortable-header:hover { background-color: #f8f9fa; }
+        .sort-asc::after { content: ' ▲'; font-size: 0.8em; }
+        .sort-desc::after { content: ' ▼'; font-size: 0.8em; }
+        .remove-chart-btn i { pointer-events: none; }
+    </style>
+</head>
+<body>
+
+    <div class="container-fluid p-4">
+        
+        <!-- Upload View -->
+        <div id="upload-view">
+            <div class="upload-container">
+                <h1 class="mb-3">CPP Data Analysis</h1>
+                <p class="text-muted">Please upload an Excel file (.xlsx, .xls) to get started.</p>
+                <hr class="my-4">
+                <input type="file" id="excel-input" class="form-control form-control-lg" accept=".xlsx, .xls">
+                <div id="loading-spinner" class="text-center mt-4" style="display: none;">
+                    <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+                    <p class="mt-2">Processing file...</p>
+                </div>
+                <div id="upload-error" class="text-danger mt-3"></div>
+            </div>
+        </div>
+
+        <!-- Dashboard View -->
+        <div id="dashboard-view" class="d-none">
+            <div id="pdf-capture-area">
+                <header class="mb-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                    <div>
+                        <h1 class="mb-0">CPP Data Analysis</h1>
+                        <p id="file-info" class="text-muted mt-1">Overview of customer point redemptions.</p>
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap justify-content-end" id="dashboard-actions">
+                        <button id="create-chart-btn" class="btn btn-primary"><i class="bi bi-plus-circle-dotted me-2"></i>Create Chart</button>
+                        <div class="dropdown">
+                            <button class="btn btn-outline-primary" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-plus-lg me-2"></i>Add Chart
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end p-2" id="add-chart-menu">
+                                <!-- Hidden chart list will be injected here -->
+                            </ul>
+                        </div>
+                        
+                        <!-- Settings Dropdown -->
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-gear-fill me-2"></i>Settings
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="#" id="manage-charts-btn"><i class="bi bi-bar-chart-line-fill me-2"></i>Manage Custom Charts</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="#" id="export-settings-btn"><i class="bi bi-box-arrow-down me-2"></i>Export Settings</a></li>
+                                <li><a class="dropdown-item" href="#" id="import-settings-menu-item"><i class="bi bi-box-arrow-up me-2"></i>Import Settings</a></li>
+                            </ul>
+                        </div>
+                        <input type="file" id="import-settings-input" class="d-none" accept=".json">
+
+                        <button id="export-csv-button" class="btn btn-success"><i class="bi bi-file-earmark-spreadsheet-fill me-2"></i>Export to CSV</button>
+                        <button id="export-pdf-button" class="btn btn-danger"><i class="bi bi-file-earmark-pdf-fill me-2"></i>Export to PDF</button>
+                        <button id="upload-new-button" class="btn btn-secondary"><i class="bi bi-arrow-clockwise me-2"></i>Upload New File</button>
+                    </div>
+                </header>
+
+                <!-- KPIs Section -->
+                <div class="row mb-4">
+                    <div class="col-md-4 col-sm-6 mb-4 kpi-card"><div class="card"><div class="card-body text-center p-4"><h2 class="text-muted fs-6 mb-2">Total Redemptions</h2><p id="total-redemptions" class="h2 fw-bold text-primary mb-0">0</p></div></div></div>
+                    <div class="col-md-4 col-sm-6 mb-4 kpi-card"><div class="card"><div class="card-body text-center p-4"><h2 class="text-muted fs-6 mb-2">Unique Customers</h2><p id="unique-customers" class="h2 fw-bold text-primary mb-0">0</p></div></div></div>
+                    <div class="col-md-4 col-sm-6 mb-4 kpi-card"><div class="card"><div class="card-body text-center p-4"><h2 class="text-muted fs-6 mb-2">Total Points Used</h2><p id="total-points" class="h2 fw-bold text-warning mb-0">0</p></div></div></div>
+                    <div class="col-md-4 col-sm-6 mb-4 kpi-card"><div class="card"><div class="card-body text-center p-4"><h2 class="text-muted fs-6 mb-2">Avg Points/Redemption</h2><p id="avg-points" class="h2 fw-bold text-warning mb-0">0</p></div></div></div>
+                    <div class="col-md-4 col-sm-6 mb-4 kpi-card"><div class="card"><div class="card-body text-center p-4"><h2 class="text-muted fs-6 mb-2">Total Revenue</h2><p id="total-revenue" class="h2 fw-bold text-success mb-0">0</p></div></div></div>
+                    <div class="col-md-4 col-sm-6 mb-4 kpi-card"><div class="card"><div class="card-body text-center p-4"><h2 class="text-muted fs-6 mb-2">Total Product Value</h2><p id="total-value" class="h2 fw-bold text-info mb-0">0</p></div></div></div>
+                </div>
+                
+                <!-- Charts Section -->
+                <div class="row mb-4">
+                    <div class="col-lg-7 mb-4" id="top-products-container">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span>Redeemed Products</span>
+                                <div>
+                                    <select id="top-products-filter" class="form-select form-select-sm d-inline-block w-auto me-2">
+                                        <option value="count">By Redemption Count</option>
+                                        <option value="value">By Total Value</option>
+                                    </select>
+                                    <button class="btn btn-sm btn-outline-light rounded-circle remove-chart-btn" data-chart-id="top-products-container" title="Hide Chart">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container" style="height: 500px;">
+                                    <canvas id="topProductsChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-5 mb-4" id="product-type-container">
+                         <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                               <span>Redemption by Product Type</span>
+                               <div>
+                                   <select id="product-type-filter" class="form-select form-select-sm d-inline-block w-auto me-2">
+                                       <option value="count">By Redemption Count</option>
+                                       <option value="revenue">By Revenue</option>
+                                       <option value="value">By Value</option>
+                                   </select>
+                                   <button class="btn btn-sm btn-outline-light rounded-circle remove-chart-btn" data-chart-id="product-type-container" title="Hide Chart">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                               </div>
+                            </div>
+                            <div class="card-body d-flex align-items-center justify-content-center">
+                                <div class="chart-container" style="height: 500px;">
+                                    <canvas id="productTypeChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Custom Charts Section -->
+                <div id="custom-charts-container" class="row mb-4"></div>
+            </div>
+
+            <!-- Data Table Section -->
+            <div class="card">
+                <div class="card-body p-4">
+                    <div class="row g-3 align-items-end mb-4">
+                        <div class="col-lg-2 col-md-6"><label for="filter-property" class="form-label">Redeem Property</label><select id="filter-property" class="form-select"><option value="">All</option></select></div>
+                        <div class="col-lg-2 col-md-6"><label for="filter-guest-of" class="form-label">Guest of</label><select id="filter-guest-of" class="form-select"><option value="">All</option></select></div>
+                        <div class="col-lg-2 col-md-6"><label for="filter-type" class="form-label">Product Type</label><select id="filter-type" class="form-select"><option value="">All</option></select></div>
+                        <div class="col-lg-4 col-md-6"><label for="search-input" class="form-label">General Search</label><input type="text" id="search-input" placeholder="Name, Member ID..." class="form-control"></div>
+                        <div class="col-lg-2 col-md-12"><button id="clear-filters-button" class="btn btn-outline-secondary w-100">Clear Filters</button></div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead id="table-header">
+                                <tr class="text-sm text-secondary">
+                                    <th class="p-3 sortable-header" data-sort-key="id">No</th>
+                                    <th class="p-3 sortable-header" data-sort-key="redeemProperty">Redeem Property</th>
+                                    <th class="p-3 sortable-header" data-sort-key="guestOf">Guest of</th>
+                                    <th class="p-3 sortable-header" data-sort-key="member">Member</th>
+                                    <th class="p-3 sortable-header" data-sort-key="name">Name</th>
+                                    <th class="p-3 sortable-header" data-sort-key="productName">Product name</th>
+                                    <th class="p-3 sortable-header" data-sort-key="productType">Product type</th>
+                                    <th class="p-3 text-end sortable-header" data-sort-key="pointRequired">Point Required</th>
+                                    <th class="p-3 text-end sortable-header" data-sort-key="revenue">Revenue</th>
+                                    <th class="p-3 text-end sortable-header" data-sort-key="value">Value of product</th>
+                                </tr>
+                            </thead>
+                            <tbody id="data-table-body"></tbody>
+                        </table>
+                        <div id="no-results" class="text-center py-5 text-muted d-none"><p>No data matches the criteria.</p></div>
+                    </div>
+                    <div id="pagination-controls" class="d-flex justify-content-between align-items-center mt-4"></div>
+                </div>
+            </div>
+            
+            <footer class="text-center text-sm text-muted mt-5"><p id="footer-text">Chatrium Point Plus © 2024</p></footer>
+        </div>
+    </div>
+    
+    <!-- Modals -->
+    <div class="modal fade" id="sheet-select-modal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title">Select a Sheet to Analyze</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body"><p>This Excel file contains multiple sheets. Please choose one.</p><div id="sheet-list" class="list-group"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="header-map-modal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title">Map Your Columns</h5></div>
+          <div class="modal-body">
+            <p class="text-muted">Match your Excel columns to the required data fields.</p>
+            <div id="header-map-container" class="row g-3"></div>
+            <hr class="my-4">
+            <div class="form-check"><input class="form-check-input" type="checkbox" id="save-mapping-checkbox"><label class="form-check-label" for="save-mapping-checkbox">Save this mapping</label></div>
+          </div>
+          <div class="modal-footer justify-content-between">
+            <div>
+                <button type="button" class="btn btn-outline-info" id="import-mapping-btn"><i class="bi bi-box-arrow-up me-2"></i>Import Settings</button>
+            </div>
+            <div>
+                <button type="button" class="btn btn-secondary" id="cancel-mapping-button">Cancel</button>
+                <button type="button" class="btn btn-primary" id="apply-mapping-button">Apply & Continue</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="create-chart-modal" tabindex="-1" aria-labelledby="createChartModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title" id="createChartModalLabel">Create a New Chart</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body">
+            <form id="create-chart-form">
+              <input type="hidden" id="editing-chart-id">
+              <div class="mb-3"><label for="chart-title" class="form-label">Chart Title</label><input type="text" class="form-control" id="chart-title" required></div>
+              <div class="mb-3"><label for="chart-type" class="form-label">Chart Type</label><select class="form-select" id="chart-type"><option value="bar">Bar Chart</option><option value="pie">Pie Chart</option><option value="doughnut">Doughnut Chart</option></select></div>
+              <div class="mb-3"><label for="chart-group-by" class="form-label">Group By (Dimension)</label><select class="form-select" id="chart-group-by"></select></div>
+              <div class="mb-3"><label for="chart-metric" class="form-label">Measure (Metric)</label><select class="form-select" id="chart-metric"></select></div>
+            </form>
+          </div>
+          <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button><button type="button" class="btn btn-primary" id="save-chart-button">Save Chart</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="manage-charts-modal" tabindex="-1" aria-labelledby="manageChartsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="manageChartsModalLabel">Manage Custom Charts</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted">Here you can edit or permanently delete your custom charts.</p>
+                    <ul id="custom-chart-list" class="list-group">
+                        <!-- Custom chart list will be injected here -->
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- JS Libraries (MUST be before our custom script) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+    <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://unpkg.com/jspdf-autotable@3.5.28/dist/jspdf.plugin.autotable.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/parn-pon/thaifont-jspdf/Sarabun-Regular-normal.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <!-- Main Application Script -->
+    <script>
+        // --- GLOBAL STATE ---
+        let currentData = [];
+        let filteredData = [];
+        let currentPage = 1;
+        const rowsPerPage = 10;
+        let sortKey = 'id';
+        let sortDir = 'asc';
+        let chartInstances = {};
+        let workbook;
+        let currentFileName = '';
+        let userHeaderMap = {};
+        let activeSheetName = '';
+        let customCharts = [];
+        let editingChartId = null;
+        
+        // Modal instances
+        let sheetSelectModal, headerMapModal, createChartModal, manageChartsModal;
+
+
+        // --- CONFIGURATION MANAGEMENT ---
+        const CONFIG_STORAGE_KEY = 'cppDashboardConfig';
+
+        // PURE function to read from localStorage
+        function loadConfiguration() {
+            const savedConfig = localStorage.getItem(CONFIG_STORAGE_KEY);
+            try {
+                return savedConfig ? JSON.parse(savedConfig) : null;
+            } catch (e) {
+                console.error("Error parsing saved configuration", e);
+                return null;
+            }
+        }
+
+        // Function to save the current state
+        function saveConfiguration(newConfig) {
+            const existingConfig = loadConfiguration() || {};
+            // When saving, ensure customCharts from the global state is the source of truth
+            const updatedConfig = { ...existingConfig, ...newConfig, customCharts: customCharts };
+            localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(updatedConfig));
+            console.log('Configuration saved:', updatedConfig);
+        }
+
+        // --- DOM ELEMENTS ---
+        const getEl = (id) => document.getElementById(id);
+        const uploadView = getEl('upload-view');
+        const dashboardView = getEl('dashboard-view');
+        const tableBody = getEl('data-table-body');
+        const tableHeader = getEl('table-header');
+        const searchInput = getEl('search-input');
+        const noResultsEl = getEl('no-results');
+        const excelInput = getEl('excel-input');
+        const fileInfoEl = getEl('file-info');
+        const uploadErrorEl = getEl('upload-error');
+        const uploadNewButton = getEl('upload-new-button');
+        const exportPdfButton = getEl('export-pdf-button');
+        const exportCsvButton = getEl('export-csv-button');
+        const filterProperty = getEl('filter-property');
+        const filterGuestOf = getEl('filter-guest-of');
+        const filterType = getEl('filter-type');
+        const paginationControls = getEl('pagination-controls');
+        const topProductsFilter = getEl('top-products-filter');
+        const productTypeFilter = getEl('product-type-filter');
+        const loadingSpinner = getEl('loading-spinner');
+        const clearFiltersButton = getEl('clear-filters-button');
+        const sheetList = getEl('sheet-list');
+        // KPIs
+        const totalRedemptionsEl = getEl('total-redemptions');
+        const uniqueCustomersEl = getEl('unique-customers');
+        const totalPointsEl = getEl('total-points');
+        const avgPointsEl = getEl('avg-points');
+        const totalRevenueEl = getEl('total-revenue');
+        const totalValueEl = getEl('total-value');
+        
+        // --- RENDERING & DISPLAY ---
+        function displayPage(data) {
+            const totalPages = Math.ceil(data.length / rowsPerPage);
+            currentPage = Math.min(currentPage, totalPages) || 1;
+            const start = (currentPage - 1) * rowsPerPage;
+            const end = start + rowsPerPage;
+            const paginatedItems = data.slice(start, end);
+            renderTable(paginatedItems);
+            renderPaginationControls(data.length, totalPages);
+        }
+
+        function renderTable(data) {
+            tableBody.innerHTML = '';
+            noResultsEl.classList.toggle('d-none', data.length > 0);
+            data.forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="p-3 text-muted">${item.id || ''}</td><td class="p-3">${item.redeemProperty || ''}</td>
+                    <td class="p-3">${item.guestOf || ''}</td><td class="p-3 fw-bold text-primary">${item.member || ''}</td>
+                    <td class="p-3 fw-bold">${item.name || ''}</td><td class="p-3">${item.productName || ''}</td>
+                    <td class="p-3 text-secondary">${item.productType || ''}</td>
+                    <td class="p-3 text-end text-warning">${(item.pointRequired || 0).toLocaleString()}</td>
+                    <td class="p-3 text-end text-success">${(item.revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                    <td class="p-3 text-end text-info">${(item.value || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>`;
+                tableBody.appendChild(row);
+            });
+        }
+        
+        function renderPaginationControls(totalItems, totalPages) {
+            paginationControls.innerHTML = '';
+            if (totalPages <= 1) return;
+            const startItem = (currentPage - 1) * rowsPerPage + 1;
+            const endItem = Math.min(startItem + rowsPerPage - 1, totalItems);
+            
+            const pageInfo = document.createElement('span');
+            pageInfo.className = 'text-muted';
+            pageInfo.textContent = `Showing ${startItem} - ${endItem} of ${totalItems} items`;
+
+            const buttonsContainer = document.createElement('div');
+            buttonsContainer.className = 'btn-group';
+
+            const prevButton = document.createElement('button');
+            prevButton.innerHTML = '&laquo; Previous';
+            prevButton.className = 'btn btn-outline-secondary';
+            prevButton.disabled = currentPage === 1;
+            prevButton.onclick = () => { if (currentPage > 1) { currentPage--; displayPage(filteredData); } };
+
+            const nextButton = document.createElement('button');
+            nextButton.innerHTML = 'Next &raquo;';
+            nextButton.className = 'btn btn-outline-secondary';
+            nextButton.disabled = currentPage === totalPages;
+            nextButton.onclick = () => { if (currentPage < totalPages) { currentPage++; displayPage(filteredData); } };
+
+            buttonsContainer.append(prevButton, nextButton);
+            paginationControls.append(pageInfo, buttonsContainer);
+        }
+
+        // --- DATA PROCESSING & FILTERING ---
+        function handleFiltersAndSearch() {
+            currentPage = 1;
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            const selectedProperty = filterProperty.value;
+            const selectedGuestOf = filterGuestOf.value;
+            const selectedType = filterType.value;
+            filteredData = currentData.filter(item => {
+                const searchMatch = searchTerm ? Object.values(item).some(val => String(val).toLowerCase().includes(searchTerm)) : true;
+                const propertyMatch = selectedProperty ? item.redeemProperty === selectedProperty : true;
+                const guestOfMatch = selectedGuestOf ? item.guestOf === selectedGuestOf : true;
+                const typeMatch = selectedType ? item.productType === selectedType : true;
+                return searchMatch && propertyMatch && guestOfMatch && typeMatch;
+            });
+            sortData();
+            updateKPIs(filteredData);
+            renderAllCharts(filteredData);
+            displayPage(filteredData);
+        }
+        
+        function clearFilters() {
+            searchInput.value = '';
+            filterProperty.value = '';
+            filterGuestOf.value = '';
+            filterType.value = '';
+            handleFiltersAndSearch();
+        }
+
+        function sortData() {
+            const numericKeys = ['id', 'pointRequired', 'revenue', 'value'];
+            filteredData.sort((a, b) => {
+                let valA = a[sortKey];
+                let valB = b[sortKey];
+
+                if (numericKeys.includes(sortKey)) {
+                    valA = parseFloat(valA) || 0;
+                    valB = parseFloat(valB) || 0;
+                } else if (typeof valA === 'string' && typeof valB === 'string') {
+                    valA = valA.toLowerCase();
+                    valB = valB.toLowerCase();
+                }
+
+                if (valA < valB) return sortDir === 'asc' ? -1 : 1;
+                if (valA > valB) return sortDir === 'asc' ? 1 : -1;
+                return 0;
+            });
+            updateSortIndicators();
+        }
+
+        function updateSortIndicators() {
+            tableHeader.querySelectorAll('th').forEach(th => {
+                th.classList.remove('sort-asc', 'sort-desc');
+                if (th.dataset.sortKey === sortKey) {
+                    th.classList.add(sortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+                }
+            });
+        }
+
+        function updateKPIs(data) {
+            const totalRedemptions = data.length;
+            const uniqueCustomers = new Set(data.map(item => item.member)).size;
+            const totalPoints = data.reduce((sum, item) => sum + (item.pointRequired || 0), 0);
+            const avgPoints = totalRedemptions > 0 ? totalPoints / totalRedemptions : 0;
+            const totalValue = data.reduce((sum, item) => sum + (item.value || 0), 0);
+            const totalRevenue = data.reduce((sum, item) => sum + (item.revenue || 0), 0);
+
+            totalRedemptionsEl.textContent = totalRedemptions.toLocaleString();
+            uniqueCustomersEl.textContent = uniqueCustomers.toLocaleString();
+            totalPointsEl.textContent = totalPoints.toLocaleString();
+            avgPointsEl.textContent = avgPoints.toLocaleString('en-US', { maximumFractionDigits: 0 });
+            totalRevenueEl.textContent = totalRevenue > 0 ? totalRevenue.toLocaleString('en-US', { style: 'currency', currency: 'THB' }) : '฿0.00';
+            totalValueEl.textContent = totalValue > 0 ? totalValue.toLocaleString('en-US', { style: 'currency', currency: 'THB' }) : '฿0.00';
+        }
+        
+        function populateFilters(data) {
+            const createOptions = (selectElement, optionsSet) => {
+                selectElement.innerHTML = '<option value="">All</option>';
+                Array.from(optionsSet).sort().forEach(opt => {
+                    if(opt) {
+                        const option = document.createElement('option');
+                        option.value = opt; option.textContent = opt;
+                        selectElement.appendChild(option);
+                    }
+                });
+            };
+            createOptions(filterProperty, new Set(data.map(i => i.redeemProperty)));
+            createOptions(filterGuestOf, new Set(data.map(i => i.guestOf)));
+            createOptions(filterType, new Set(data.map(i => i.productType)));
+        }
+
+        // --- CHARTS ---
+        function renderAllCharts(data) {
+            renderTopProductsChart(data);
+            renderProductTypeChart(data);
+            renderCustomCharts(data);
+        }
+
+        function truncateLabel(str, maxLength = 35) {
+            if (!str) return '';
+            if (str.length <= maxLength) return str;
+            return str.substring(0, maxLength) + '...';
+        }
+        
+        function calculateAxisMax(data) {
+            const dataMax = Math.max(...data.filter(d => d !== null && isFinite(d)));
+            if (dataMax <= 0) return undefined;
+            return dataMax * 1.2;
+        }
+
+        function renderTopProductsChart(data) {
+            const filterBy = topProductsFilter.value;
+            const productMetrics = data.reduce((acc, item) => {
+                if (!item.productName) return acc;
+                if (!acc[item.productName]) {
+                    acc[item.productName] = { count: 0, value: 0 };
+                }
+                acc[item.productName].count += 1;
+                acc[item.productName].value += (item.value || 0);
+                return acc;
+            }, {});
+
+            const sortedProducts = Object.entries(productMetrics)
+                .sort(([, a], [, b]) => b[filterBy] - a[filterBy]);
+
+            const labels = sortedProducts.map(([name]) => name);
+            const values = sortedProducts.map(([, metrics]) => metrics[filterBy]);
+            const chartLabel = filterBy === 'count' ? 'Redemption Count' : 'Total Value (THB)';
+
+            if (chartInstances.topProducts) chartInstances.topProducts.destroy();
+            chartInstances.topProducts = new Chart('topProductsChart', {
+                type: 'bar',
+                data: { 
+                    labels: labels.map(label => truncateLabel(label, 40)), 
+                    datasets: [{ label: chartLabel, data: values, backgroundColor: '#5e72e4' }] 
+                },
+                options: {
+                    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            max: calculateAxisMax(values),
+                            ticks: { callback: (value) => value.toLocaleString() }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { callbacks: { 
+                            title: (tooltipItems) => labels[tooltipItems[0].dataIndex],
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) { label += ': '; }
+                                if (context.parsed.x !== null) {
+                                    label += (filterBy === 'value' ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'THB' }).format(context.parsed.x) : context.parsed.x.toLocaleString());
+                                }
+                                return label;
+                        }}},
+                        datalabels: {
+                            display: true,
+                            anchor: 'end',
+                            align: 'right',
+                            color: '#495057',
+                            font: { weight: 'bold' },
+                            formatter: (value) => (filterBy === 'value' ? '฿' : '') + value.toLocaleString(undefined, {maximumFractionDigits: 0}),
+                        }
+                    }
+                }
+            });
+        }
+        
+        function renderProductTypeChart(data) {
+            const filterBy = productTypeFilter.value;
+            const typeMetrics = data.reduce((acc, item) => {
+                const key = item.productType || 'Unspecified';
+                if (!acc[key]) {
+                    acc[key] = { count: 0, revenue: 0, value: 0 };
+                }
+                acc[key].count += 1;
+                acc[key].revenue += (item.revenue || 0);
+                acc[key].value += (item.value || 0);
+                return acc;
+            }, {});
+
+            const labels = Object.keys(typeMetrics);
+            const values = labels.map(label => typeMetrics[label][filterBy]);
+
+            if (chartInstances.productType) chartInstances.productType.destroy();
+            chartInstances.productType = new Chart('productTypeChart', {
+                type: 'pie',
+                data: { labels, datasets: [{ data: values, backgroundColor: ['#4f46e5', '#10b981', '#f59e0b', '#0ea5e9', '#6366f1', '#f43f5e', '#8b5cf6'] }] },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: { callbacks: { label: function(context) {
+                            let label = context.label || '';
+                            if (label) { label += ': '; }
+                            const value = context.parsed;
+                            label += (filterBy !== 'count' ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'THB' }).format(value) : value.toLocaleString());
+                            return label;
+                        }}},
+                        datalabels: {
+                            color: '#ffffff',
+                            font: { weight: 'bold' },
+                            formatter: (value, ctx) => {
+                                const sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                if (sum === 0) return '0%';
+                                const percentage = (value / sum * 100);
+                                return percentage > 5 ? percentage.toFixed(1) + '%' : '';
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- FILE & DATA LOADING ---
+        function handleFileSelection(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            currentFileName = file.name;
+            loadingSpinner.style.display = 'block';
+            uploadErrorEl.textContent = '';
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                    if (workbook.SheetNames.length === 1) {
+                        processSheet(workbook.SheetNames[0]);
+                    } else {
+                        sheetList.innerHTML = '';
+                        workbook.SheetNames.forEach(name => {
+                            const button = document.createElement('button');
+                            button.type = 'button';
+                            button.className = 'list-group-item list-group-item-action';
+                            button.textContent = name;
+                            button.onclick = () => processSheet(name);
+                            sheetList.appendChild(button);
+                        });
+                        sheetSelectModal.show();
+                        loadingSpinner.style.display = 'none';
+                    }
+                } catch (error) {
+                    uploadErrorEl.textContent = "Error reading file: " + error.message;
+                    loadingSpinner.style.display = 'none';
+                }
+            };
+            reader.onerror = () => { uploadErrorEl.textContent = "Could not read file."; loadingSpinner.style.display = 'none';};
+            reader.readAsArrayBuffer(file);
+            excelInput.value = '';
+        }
+        
+        function processSheet(sheetName) {
+            try {
+                const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { raw: false, header: 1 });
+                if (!jsonData || jsonData.length < 2) {
+                     throw new Error("The selected sheet is empty or contains only a header row.");
+                }
+                const headers = jsonData[0].map(h => String(h || '').trim());
+                populateHeaderMappingForm(sheetName, headers);
+                headerMapModal.show();
+
+            } catch (error) {
+                uploadErrorEl.textContent = "Error processing sheet: " + error.message;
+                loadingSpinner.style.display = 'none';
+            } finally {
+                sheetSelectModal.hide();
+            }
+        }
+
+        function populateHeaderMappingForm(sheetName, headers) {
+            activeSheetName = sheetName;
+            const mappingContainer = getEl('header-map-container');
+            mappingContainer.innerHTML = '';
+
+            const appFields = {
+                id: { label: 'No (ID)', aliases: ['no', 'id'], required: false },
+                redeemProperty: { label: 'Redeem Property', aliases: ['redeem property', 'property', 'hotel'], required: false },
+                guestOf: { label: 'Guest of', aliases: ['guest of'], required: false },
+                member: { label: 'Member ID', aliases: ['member', 'member id', 'member no', 'member #'], required: true },
+                name: { label: 'Member Name', aliases: ['name', 'guest name', 'member name'], required: true },
+                productName: { label: 'Product Name', aliases: ['product name', 'item', 'product'], required: true },
+                productType: { label: 'Product Type', aliases: ['product type', 'category'], required: false },
+                pointRequired: { label: 'Points Required', aliases: ['point required', 'points', 'points used'], required: true },
+                revenue: { label: 'Revenue', aliases: ['revenue'], required: false },
+                value: { label: 'Product Value', aliases: ['value of product', 'value'], required: false }
+            };
+
+            const savedConfig = loadConfiguration();
+            const savedMapping = savedConfig ? savedConfig.headerMap : null;
+
+            for (const key in appFields) {
+                const field = appFields[key];
+                const requiredMark = field.required ? '<span class="text-danger">*</span>' : '';
+                const selectOptions = `<option value="">- Not Mapped -</option>` + headers.map(h => `<option value="${h}">${h}</option>`).join('');
+
+                const row = document.createElement('div');
+                row.className = 'col-md-6';
+                row.innerHTML = `
+                    <label for="map-${key}" class="form-label fw-bold">${field.label} ${requiredMark}</label>
+                    <select id="map-${key}" data-key="${key}" class="form-select">${selectOptions}</select>
+                `;
+                mappingContainer.appendChild(row);
+
+                const select = getEl(`map-${key}`);
+                let finalSelection = ''; // Default to the value for "- Not Mapped -"
+
+                if (savedMapping && savedMapping.hasOwnProperty(key)) {
+                    finalSelection = savedMapping[key] || '';
+                } else {
+                    const lowerCaseHeaders = headers.map(h => h.toLowerCase());
+                    for (const alias of field.aliases) {
+                        const matchIndex = lowerCaseHeaders.indexOf(alias.toLowerCase());
+                        if (matchIndex > -1) {
+                            finalSelection = headers[matchIndex];
+                            break;
+                        }
+                    }
+                }
+                select.value = finalSelection;
+            }
+        }
+
+        function applyHeaderMapping() {
+            userHeaderMap = {};
+            const appFields = document.querySelectorAll('#header-map-container select');
+            let isValid = true;
+
+            appFields.forEach(select => {
+                const key = select.dataset.key;
+                userHeaderMap[key] = select.value || null;
+            });
+
+            document.querySelectorAll('[data-key]').forEach(select => {
+                 const key = select.dataset.key;
+                 const isRequired = document.querySelector(`label[for="map-${key}"] .text-danger`);
+                 if(isRequired && !select.value) {
+                    select.classList.add('is-invalid');
+                    isValid = false;
+                 } else {
+                    select.classList.remove('is-invalid');
+                 }
+            });
+
+            if (!isValid) {
+                alert('Please map all required fields (marked with *).');
+                return;
+            }
+
+            if(getEl('save-mapping-checkbox').checked) {
+                saveConfiguration({ headerMap: userHeaderMap });
+            }
+
+            const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[activeSheetName], {raw: false});
+            const transformedData = transformDataFromExcel(jsonData, userHeaderMap);
+            updateDashboard(transformedData);
+            
+            headerMapModal.hide();
+            loadingSpinner.style.display = 'none';
+        }
+
+        function transformDataFromExcel(jsonData, userMapping) {
+            if (!jsonData || jsonData.length === 0) {
+                throw new Error("The selected sheet is empty or contains no data.");
+            }
+            return jsonData.map((row, index) => {
+                const newRow = {};
+                for (const jsKey in userMapping) {
+                    const originalHeader = userMapping[jsKey];
+                    if(originalHeader) {
+                        newRow[jsKey] = row[originalHeader] !== undefined ? row[originalHeader] : null;
+                    }
+                }
+                newRow.id = newRow.id || (index + 1);
+                newRow.pointRequired = Number(newRow.pointRequired) || 0;
+                newRow.revenue = Number(newRow.revenue) || 0;
+                newRow.value = Number(newRow.value) || 0;
+                return newRow;
+            });
+        }
+        
+        function updateDashboard(data) {
+            currentData = data;
+            fileInfoEl.textContent = `Data from file: ${currentFileName} (Sheet: ${activeSheetName})`;
+            uploadView.classList.add('d-none');
+            dashboardView.classList.remove('d-none');
+            // Load configuration from storage after data is ready
+            const config = loadConfiguration();
+            if (config) {
+                customCharts = config.customCharts || [];
+            }
+            populateFilters(data);
+            handleFiltersAndSearch();
+            setupChartControls();
+        }
+
+        // --- CHART CONTROLS & CUSTOM CHARTS ---
+        function applySavedDisplaySettings() {
+            const config = loadConfiguration();
+            if (!config || !config.display) return;
+            
+            Object.keys(config.display).forEach(chartId => {
+                const container = getEl(chartId);
+                if(container) {
+                    container.classList.toggle('d-none', !config.display[chartId]);
+                }
+            });
+        }
+
+        function setupChartControls() {
+            document.querySelectorAll('.remove-chart-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const chartId = e.currentTarget.dataset.chartId;
+                    const container = getEl(chartId);
+                    if(container) container.classList.add('d-none');
+                    updateAddChartMenu();
+                    saveCurrentChartState();
+                });
+            });
+            updateAddChartMenu();
+        }
+
+        function updateAddChartMenu() {
+            const menu = getEl('add-chart-menu');
+            menu.innerHTML = '';
+            const allCharts = [
+                { id: 'top-products-container', name: 'Top Products Chart' },
+                { id: 'product-type-container', name: 'Product Type Chart' },
+                ...customCharts.map(c => ({id: c.id, name: c.title}))
+            ];
+
+            let hiddenCount = 0;
+            allCharts.forEach(chart => {
+                const container = getEl(chart.id);
+                if (container && container.classList.contains('d-none')) {
+                    hiddenCount++;
+                    const li = document.createElement('li');
+                    li.innerHTML = `<a class="dropdown-item rounded" href="#" data-chart-id="${chart.id}">${chart.name}</a>`;
+                    li.querySelector('a').addEventListener('click', (e) => {
+                        e.preventDefault();
+                        getEl(chart.id).classList.remove('d-none');
+                        updateAddChartMenu();
+                        saveCurrentChartState();
+                    });
+                    menu.appendChild(li);
+                }
+            });
+
+            if (hiddenCount === 0) {
+                menu.innerHTML = '<li><span class="dropdown-item-text text-muted">All charts are shown</span></li>';
+            }
+        }
+
+        function saveCurrentChartState() {
+            const displaySettings = {};
+            const allCharts = [
+                { id: 'top-products-container' },
+                { id: 'product-type-container' },
+                ...customCharts.map(c => ({id: c.id}))
+            ];
+            allCharts.forEach(chart => {
+                const container = getEl(chart.id);
+                if(container) {
+                    displaySettings[chart.id] = !container.classList.contains('d-none');
+                }
+            });
+            saveConfiguration({ display: displaySettings });
+        }
+
+        function openCreateChartModal(chartToEdit = null) {
+            editingChartId = chartToEdit ? chartToEdit.id : null;
+            
+            getEl('createChartModalLabel').textContent = chartToEdit ? 'Edit Chart' : 'Create a New Chart';
+            
+            const groupBySelect = getEl('chart-group-by');
+            const metricSelect = getEl('chart-metric');
+            
+            groupBySelect.innerHTML = '';
+            metricSelect.innerHTML = '';
+
+            const groupByFields = { redeemProperty: 'Redeem Property', guestOf: 'Guest Of', productName: 'Product Name', productType: 'Product Type' };
+            for(const key in groupByFields) {
+                if(userHeaderMap[key]) {
+                    groupBySelect.add(new Option(groupByFields[key], key));
+                }
+            }
+
+            const metricFields = { pointRequired: 'Points Required', revenue: 'Revenue', value: 'Value of product' };
+            metricSelect.add(new Option('Count of Redemptions', 'count'));
+            for(const key in metricFields) {
+                 if(userHeaderMap[key]) {
+                    metricSelect.add(new Option(`Sum of ${metricFields[key]}`, `sum-${key}`));
+                 }
+            }
+            
+            if (chartToEdit) {
+                getEl('chart-title').value = chartToEdit.title;
+                getEl('chart-type').value = chartToEdit.type;
+                getEl('chart-group-by').value = chartToEdit.groupBy;
+                getEl('chart-metric').value = chartToEdit.metricField ? `${chartToEdit.metric}-${chartToEdit.metricField}` : 'count';
+            } else {
+                getEl('create-chart-form').reset();
+            }
+            
+            createChartModal.show();
+        }
+
+        function saveCustomChart() {
+            const form = getEl('create-chart-form');
+            if(!form.checkValidity()) {
+                form.classList.add('was-validated');
+                return;
+            }
+            
+            const chartData = {
+                title: getEl('chart-title').value,
+                type: getEl('chart-type').value,
+                groupBy: getEl('chart-group-by').value,
+                metric: getEl('chart-metric').value.split('-')[0],
+                metricField: getEl('chart-metric').value.split('-')[1] || null
+            };
+
+            if (editingChartId) {
+                const index = customCharts.findIndex(c => c.id === editingChartId);
+                if (index > -1) {
+                    customCharts[index] = { ...customCharts[index], ...chartData };
+                }
+            } else {
+                chartData.id = `custom-chart-${Date.now()}`;
+                customCharts.push(chartData);
+            }
+
+            saveConfiguration({});
+            renderAllCharts(filteredData);
+            createChartModal.hide();
+            editingChartId = null;
+        }
+
+        function renderCustomCharts(data) {
+            const container = getEl('custom-charts-container');
+            container.innerHTML = '';
+
+            customCharts.forEach(chartDef => {
+                const chartContainer = document.createElement('div');
+                chartContainer.className = 'col-lg-6 mb-4';
+                chartContainer.id = chartDef.id;
+                chartContainer.innerHTML = `
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span title="${chartDef.title}">${truncateLabel(chartDef.title, 25)}</span>
+                            <button class="btn btn-sm btn-outline-light rounded-circle remove-chart-btn" data-chart-id="${chartDef.id}" title="Hide Chart">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container" style="height: 400px;">
+                                <canvas id="canvas-${chartDef.id}"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(chartContainer);
+
+                const metrics = data.reduce((acc, item) => {
+                    const key = item[chartDef.groupBy] || 'Unspecified';
+                    if (!acc[key]) {
+                        acc[key] = { count: 0, sum: 0 };
+                    }
+                    acc[key].count += 1;
+                    if(chartDef.metric === 'sum' && chartDef.metricField) {
+                        acc[key].sum += (item[chartDef.metricField] || 0);
+                    }
+                    return acc;
+                }, {});
+                
+                const sortedMetrics = Object.entries(metrics).sort(([,a], [,b]) => {
+                    const valA = chartDef.metric === 'count' ? a.count : a.sum;
+                    const valB = chartDef.metric === 'count' ? b.count : b.sum;
+                    return valB - valA;
+                }).slice(0, 15);
+
+                const labels = sortedMetrics.map(([name]) => truncateLabel(name, 40));
+                const values = sortedMetrics.map(([, data]) => chartDef.metric === 'count' ? data.count : data.sum);
+
+                const canvasId = `canvas-${chartDef.id}`;
+                if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
+                chartInstances[canvasId] = new Chart(canvasId, {
+                    type: chartDef.type,
+                    data: { labels, datasets: [{ label: chartDef.title, data: values, backgroundColor: '#17a2b8' }] },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        indexAxis: chartDef.type === 'bar' ? 'y' : 'x',
+                        plugins: { legend: { display: false }, datalabels: { color: chartDef.type === 'bar' ? '#495057' : '#ffffff', anchor: 'end', align: 'end', formatter: (v) => v.toLocaleString() } }
+                    }
+                });
+            });
+            applySavedDisplaySettings();
+            setupChartControls();
+        }
+
+        function openManageChartsModal() {
+            const list = getEl('custom-chart-list');
+            list.innerHTML = ''; // Clear the list before repopulating
+
+            if (customCharts.length === 0) {
+                list.innerHTML = '<li class="list-group-item text-muted">No custom charts created yet.</li>';
+            } else {
+                customCharts.forEach(chart => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                    li.innerHTML = `
+                        <span>${chart.title}</span>
+                        <div>
+                            <button class="btn btn-outline-primary btn-sm edit-chart-btn" data-chart-id="${chart.id}"><i class="bi bi-pencil-fill me-1"></i> Edit</button>
+                            <button class="btn btn-outline-danger btn-sm delete-chart-btn" data-chart-id="${chart.id}"><i class="bi bi-trash-fill me-1"></i> Delete</button>
+                        </div>
+                    `;
+                    list.appendChild(li);
+                });
+            }
+            
+            // Re-attach event listeners every time the modal is opened
+            list.querySelectorAll('.edit-chart-btn').forEach(btn => {
+                btn.addEventListener('click', e => {
+                    const chartId = e.currentTarget.dataset.chartId;
+                    const chartToEdit = customCharts.find(c => c.id === chartId);
+                    manageChartsModal.hide();
+                    openCreateChartModal(chartToEdit);
+                });
+            });
+
+            list.querySelectorAll('.delete-chart-btn').forEach(btn => {
+                btn.addEventListener('click', e => {
+                    const chartId = e.currentTarget.dataset.chartId;
+                    if (confirm('Are you sure you want to permanently delete this chart?')) {
+                        customCharts = customCharts.filter(c => c.id !== chartId);
+                        saveConfiguration({}); // Save the updated custom charts array
+                        getEl(chartId)?.remove(); // Remove from DOM
+                        openManageChartsModal(); // Refresh the list by re-calling the function
+                        updateAddChartMenu();
+                    }
+                });
+            });
+
+            manageChartsModal.show();
+        }
+
+        // --- IMPORT / EXPORT ---
+        function exportSettings() {
+            const config = loadConfiguration() || {};
+            const exportConfig = { 
+                ...config, 
+                headerMap: userHeaderMap, 
+                customCharts: customCharts 
+            };
+
+            const hasHeaderMap = exportConfig.headerMap && Object.values(exportConfig.headerMap).some(v => v !== null);
+            const hasCustomCharts = exportConfig.customCharts && exportConfig.customCharts.length > 0;
+            const hasDisplaySettings = exportConfig.display && Object.keys(exportConfig.display).length > 0;
+
+            if (!hasHeaderMap && !hasCustomCharts && !hasDisplaySettings) {
+                alert("No settings to export.");
+                return;
+            }
+
+            const jsonString = JSON.stringify(exportConfig, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'cpp-dashboard-settings.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function importSettings(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    
+                    const config = JSON.parse(e.target.result);
+                    if (config && (typeof config.headerMap === 'object' || Array.isArray(config.customCharts) || typeof config.display === 'object')) {
+                        localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(config));
+                        
+                        const mappingModalEl = getEl('header-map-modal');
+                        const isMappingModalOpen = mappingModalEl.classList.contains('show');
+
+                        if (isMappingModalOpen) {
+                            alert("Settings imported successfully! The mapping has been updated.");
+                            const tempJsonData = XLSX.utils.sheet_to_json(workbook.Sheets[activeSheetName], { raw: false, header: 1 });
+                            const headers = tempJsonData[0].map(h => String(h || '').trim());
+                            const newConfig = loadConfiguration();
+                            if (newConfig) {
+                                customCharts = newConfig.customCharts || [];
+                            }
+                            populateHeaderMappingForm(activeSheetName, headers);
+                        } else {
+                            alert("Settings imported successfully! The page will now reload to apply all changes.");
+                            window.location.reload();
+                        }
+
+                    } else {
+                        alert("Invalid settings file.");
+                    }
+                } catch (error) {
+                    alert("Error reading or parsing the settings file.");
+                    console.error(error);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; // Reset file input
+        }
+
+        // --- EXPORT FUNCTIONS ---
+        function exportTableToCSV() {
+            if (filteredData.length === 0) {
+                alert("No data to export.");
+                return;
+            }
+
+            const headers = ["No", "Redeem Property", "Guest of", "Member", "Name", "Product Name", "Product Type", "Point Required", "Revenue", "Value of product"];
+            const escapeCSV = (value) => {
+                const str = String(value === null || value === undefined ? '' : value);
+                if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                    return `"${str.replace(/"/g, '""')}"`;
+                }
+                return str;
+            };
+
+            const csvRows = [
+                headers.join(','),
+                ...filteredData.map(row => [
+                    escapeCSV(row.id), escapeCSV(row.redeemProperty), escapeCSV(row.guestOf),
+                    escapeCSV(row.member), escapeCSV(row.name), escapeCSV(row.productName),
+                    escapeCSV(row.productType), escapeCSV(row.pointRequired),
+                    escapeCSV(row.revenue), escapeCSV(row.value)
+                ].join(','))
+            ];
+
+            const csvString = csvRows.join('\n');
+            const blob = new Blob([`\uFEFF${csvString}`], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `redemption_data_${currentFileName}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        async function exportDashboardAsPDF() {
+            const { jsPDF } = window.jspdf;
+            const captureArea = document.getElementById('pdf-capture-area');
+            const actionsElement = document.getElementById('dashboard-actions');
+            
+            const exportButtonText = exportPdfButton.innerHTML;
+            exportPdfButton.disabled = true;
+            exportPdfButton.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Exporting...`;
+
+            actionsElement.style.visibility = 'hidden';
+
+            const canvas = await html2canvas(captureArea, { scale: 2, useCORS: true, logging: false });
+            
+            actionsElement.style.visibility = 'visible';
+            
+            const imgData = canvas.toDataURL('image/png');
+            const imgWidth = 190;
+            const imgHeight = canvas.height * imgWidth / canvas.width;
+            
+            const doc = new jsPDF('p', 'mm', 'a4');
+            doc.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
+            
+            let tableStartY = imgHeight + 20;
+
+            if (tableStartY > 280) {
+                doc.addPage();
+                tableStartY = 15;
+            }
+
+            doc.setFont('Sarabun-Regular');
+            doc.setFontSize(12);
+
+            const head = [['No', 'Property', 'Guest Of', 'Member', 'Name', 'Product', 'Type', 'Points', 'Revenue', 'Value']];
+            const body = filteredData.map(row => [
+                row.id, row.redeemProperty, row.guestOf, row.member, row.name,
+                row.productName, row.productType, row.pointRequired.toLocaleString(),
+                row.revenue.toFixed(2), row.value.toFixed(2)
+            ]);
+
+            doc.autoTable({
+                head: head,
+                body: body,
+                startY: tableStartY + 5,
+                theme: 'grid',
+                styles: { font: 'Sarabun-Regular', fontStyle: 'normal', fontSize: 7, cellPadding: 1.5 },
+                headStyles: { fillColor: [93, 120, 255], textColor: 255, fontStyle: 'bold' },
+                alternateRowStyles: { fillColor: [247, 248, 250] }
+            });
+            
+            exportPdfButton.disabled = false;
+            exportPdfButton.innerHTML = exportButtonText;
+            doc.save(`dashboard_export_${currentFileName}.pdf`);
+        }
+
+        // --- INITIALIZATION ---
+        function init() {
+            Chart.register(ChartDataLabels);
+            Chart.defaults.font.family = "'Sarabun', sans-serif";
+            Chart.defaults.plugins.tooltip.titleFont = { size: 14 };
+            Chart.defaults.plugins.tooltip.bodyFont = { size: 12 };
+
+            // Initialize all modals once
+            sheetSelectModal = new bootstrap.Modal(getEl('sheet-select-modal'));
+            headerMapModal = new bootstrap.Modal(getEl('header-map-modal'));
+            createChartModal = new bootstrap.Modal(getEl('create-chart-modal'));
+            manageChartsModal = new bootstrap.Modal(getEl('manage-charts-modal'));
+
+            getEl('footer-text').innerHTML = `Chatrium Point Plus © ${new Date().getFullYear()}`;
+
+            // Main event listeners
+            excelInput.addEventListener('change', handleFileSelection);
+            uploadNewButton.addEventListener('click', () => { window.location.reload(); });
+            exportPdfButton.addEventListener('click', exportDashboardAsPDF);
+            exportCsvButton.addEventListener('click', exportTableToCSV);
+            searchInput.addEventListener('input', handleFiltersAndSearch);
+            filterProperty.addEventListener('change', handleFiltersAndSearch);
+            filterGuestOf.addEventListener('change', handleFiltersAndSearch);
+            filterType.addEventListener('change', handleFiltersAndSearch);
+            clearFiltersButton.addEventListener('click', clearFilters);
+            
+            // Chart filter listeners
+            topProductsFilter.addEventListener('change', () => renderAllCharts(filteredData));
+            productTypeFilter.addEventListener('change', () => renderAllCharts(filteredData));
+
+            // Modal & Chart Creation listeners
+            getEl('apply-mapping-button').addEventListener('click', applyHeaderMapping);
+            getEl('cancel-mapping-button').addEventListener('click', () => { window.location.reload(); });
+            getEl('create-chart-btn').addEventListener('click', () => openCreateChartModal());
+            getEl('save-chart-button').addEventListener('click', saveCustomChart);
+            getEl('manage-charts-btn').addEventListener('click', openManageChartsModal);
+
+            // Settings Import/Export listeners
+            getEl('export-settings-btn').addEventListener('click', exportSettings);
+            getEl('import-settings-menu-item').addEventListener('click', (e) => {
+                e.preventDefault();
+                getEl('import-settings-input').click();
+            });
+            getEl('import-mapping-btn').addEventListener('click', () => {
+                getEl('import-settings-input').click();
+            });
+            getEl('import-settings-input').addEventListener('change', importSettings);
+
+            // Table sorting listener
+            tableHeader.addEventListener('click', (e) => {
+                const header = e.target.closest('th');
+                if (!header || !header.classList.contains('sortable-header')) return;
+                const newSortKey = header.dataset.sortKey;
+                sortDir = sortKey === newSortKey ? (sortDir === 'asc' ? 'desc' : 'asc') : 'asc';
+                sortKey = newSortKey;
+                sortData();
+                displayPage(filteredData);
+            });
+
+            // Initial setup - Load config into global state
+            const initialConfig = loadConfiguration();
+            if (initialConfig) {
+                customCharts = initialConfig.customCharts || [];
+            }
+        }
+        
+        // Run the application
+        init();
+
+    </script>
+</body>
+</html>
+
