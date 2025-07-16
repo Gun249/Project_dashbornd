@@ -145,6 +145,31 @@
             color: #24292f;
         }
         
+        /* Sort indicators and month column styling */
+        .sortable-header {
+            transition: all 0.2s ease;
+        }
+        
+        .sortable-header:hover .sort-icon {
+            opacity: 1 !important;
+            transform: scale(1.1);
+        }
+        
+        .sort-icon {
+            transition: all 0.2s ease;
+            font-size: 12px;
+        }
+        
+        .sortable-header[data-sort-key]:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        /* Month column indicator */
+        .bi-calendar3 {
+            font-size: 11px;
+        }
+
         /* Sort indicators */
         .sortable-header:hover {
             background: linear-gradient(to bottom, #e9ecef 0%, #dee2e6 100%) !important;
@@ -222,6 +247,8 @@
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="#" id="export-csv-btn"><i class="bi bi-file-earmark-spreadsheet-fill me-2"></i>ส่งออกเป็น CSV</a></li>
                                 <li><a class="dropdown-item" href="#" id="export-pdf-btn"><i class="bi bi-file-earmark-pdf-fill me-2"></i>ส่งออกเป็น PDF</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-info" href="#" id="debug-data-btn"><i class="bi bi-bug-fill me-2"></i>ดูข้อมูล Debug (Console)</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item text-danger" href="#" id="clear-storage-btn"><i class="bi bi-trash3-fill me-2"></i>ล้างค่าที่บันทึกไว้ (ในเครื่อง)</a></li>
                             </ul>
@@ -541,6 +568,8 @@
                 const STAFFING_DEPARTMENTS = ['FO', 'HKP', 'Laundry', 'Fitness', 'F&B Service', 'Kitchen', 'A&G', 'Finance', 'Procurement', 'IT', 'HR', 'Security', 'Sales', 'Engineering', 'MarComm', 'E-Commerce', 'Commercial', 'Service Quality Assurance', 'Golf Operations', 'Golf Maintenance'];
                 const STAFFING_DEPARTMENT_SET = new Set(STAFFING_DEPARTMENTS.map(dept => dept.toUpperCase()));
 
+                console.log(`🔍 Looking for hotel codes:`, HOTEL_CODES);
+
                 let hotelRowIndex = -1, typeRowIndex = -1, periodRowIndex = -1;
                 const upperHotelCodes = HOTEL_CODES.map(c => c.toUpperCase());
 
@@ -549,13 +578,27 @@
                 for (let i = 0; i < searchLimit; i++) {
                     try {
                         const row = sheetData[i] || [];
-                        if (hotelRowIndex === -1 && row.some(cell => upperHotelCodes.includes(String(cell || '').trim().toUpperCase()))) hotelRowIndex = i;
-                        if (typeRowIndex === -1 && row.some(cell => EMPLOYMENT_TYPES.includes(String(cell || '').trim().toUpperCase()))) typeRowIndex = i;
+                        
+                        // Debug each row to see what we find
+                        const rowValues = row.slice(0, 15).map(cell => String(cell || '').trim()).filter(v => v);
+                        if (rowValues.length > 0) {
+                            console.log(`Row ${i}:`, rowValues);
+                        }
+                        
+                        if (hotelRowIndex === -1 && row.some(cell => upperHotelCodes.includes(String(cell || '').trim().toUpperCase()))) {
+                            hotelRowIndex = i;
+                            console.log(`🏨 Hotel row found at index ${i}:`, row.slice(0, 15));
+                        }
+                        if (typeRowIndex === -1 && row.some(cell => EMPLOYMENT_TYPES.includes(String(cell || '').trim().toUpperCase()))) {
+                            typeRowIndex = i;
+                            console.log(`👥 Type row found at index ${i}:`, row.slice(0, 15));
+                        }
                         
                         // Use a more robust check for the period row
                         let dateLikeCount = row.filter(cell => formatPeriod(cell, fileYear)).length;
                         if (periodRowIndex === -1 && dateLikeCount > 2) { // Require at least 3 date-like cells
                             periodRowIndex = i;
+                            console.log(`📅 Period row found at index ${i} with ${dateLikeCount} date-like cells:`, row.slice(0, 15));
                         }
                     } catch (error) {
                         console.warn(`Error processing row ${i}:`, error);
@@ -563,6 +606,9 @@
                     }
                 }
 
+                console.log(`📍 Header rows found - Hotel: ${hotelRowIndex}, Type: ${typeRowIndex}, Period: ${periodRowIndex}`);
+
+                // Validate that all required header rows were found
                 if (hotelRowIndex === -1 || typeRowIndex === -1 || periodRowIndex === -1) {
                     throw new Error("HR Parser: Could not find required header rows (Hotel, Type, or Period).");
                 }
@@ -595,7 +641,20 @@
                         const currentType = findLastValidValue(typeRow, j, EMPLOYMENT_TYPES);
                         const formattedPeriod = formatPeriod(periodRow[j], fileYear);
 
-                        if (formattedPeriod && currentHotel && currentType) {
+                        // Debug logging สำหรับแต่ละ column
+                        if (j <= 15) { // Debug เฉพาะ 15 columns แรก เพื่อไม่ให้ log เยอะเกินไป
+                            console.log(`Column ${j}:`, {
+                                hotel: currentHotel,
+                                type: currentType,
+                                period: formattedPeriod,
+                                hotelCell: hotelRow?.[j],
+                                typeCell: typeRow?.[j],
+                                periodCell: periodRow?.[j]
+                            });
+                        }
+
+                        // Store context only if all three components are found
+                        if (currentHotel && currentType && formattedPeriod) {
                             columnContextMap.set(j, { hotel: currentHotel, type: currentType, period: formattedPeriod });
                         }
                     } catch (error) {
@@ -604,8 +663,13 @@
                     }
                 }
 
+                console.log(`📍 Total columns mapped: ${columnContextMap.size} out of ${maxCols - 1}`);
+                console.log(`📍 Mapped columns:`, Array.from(columnContextMap.entries()).map(([col, ctx]) => `${col}: ${ctx.hotel}-${ctx.type}-${ctx.period}`));
+
                 // --- Iterate through data rows and create flat records ---
                 const dataStartIndex = periodRowIndex + 1;
+                console.log(`📍 Starting data processing from row ${dataStartIndex}`);
+                
                 for (let i = dataStartIndex; i < sheetData.length; i++) {
                     try {
                         const row = sheetData[i] || [];
@@ -613,7 +677,15 @@
                         
                         if (!rawDeptName || rawDeptName.toUpperCase().includes('TOTAL')) continue;
                         
-                        if (STAFFING_DEPARTMENT_SET.has(rawDeptName.toUpperCase())) {
+                        // Check if this department is one we care about for staffing
+                        const normalizedDeptName = rawDeptName.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                        const shouldProcessRow = STAFFING_DEPARTMENT_SET.has(normalizedDeptName) || 
+                                               STAFFING_DEPARTMENTS.some(dept => 
+                                                   normalizedDeptName.includes(dept.toUpperCase().replace(/[^A-Z0-9]/g, ''))
+                                               );
+                        
+                        if (shouldProcessRow) {
+                            let rowDataCount = 0;
                             columnContextMap.forEach((context, colIndex) => {
                                 try {
                                     const cellValue = row[colIndex];
@@ -627,12 +699,31 @@
                                                 period: context.period,
                                                 value: numericValue
                                             });
+                                            rowDataCount++;
+                                            
+                                            // Debug specific LKYT data
+                                            if (context.hotel === 'LKYT') {
+                                                console.log(`🏨 LKYT Data found:`, {
+                                                    department: rawDeptName,
+                                                    hotel: context.hotel,
+                                                    type: context.type,
+                                                    period: context.period,
+                                                    value: numericValue,
+                                                    cellValue: cellValue,
+                                                    row: i,
+                                                    col: colIndex
+                                                });
+                                            }
                                         }
                                     }
                                 } catch (error) {
                                     console.warn(`Error processing cell [${i}][${colIndex}]:`, error);
                                 }
                             });
+                            
+                            if (rowDataCount > 0) {
+                                console.log(`📊 Row ${i} (${rawDeptName}): processed ${rowDataCount} data points`);
+                            }
                         }
                     } catch (error) {
                         console.warn(`Error processing data row ${i}:`, error);
@@ -643,6 +734,21 @@
                 if (structuredData.length === 0) {
                     throw new Error("ไม่พบข้อมูลที่สามารถประมวลผลได้ในรูปแบบ HR Report");
                 }
+                
+                // Debug: สรุปข้อมูลที่ได้
+                const hotelSummary = {};
+                structuredData.forEach(item => {
+                    if (!hotelSummary[item.hotel]) {
+                        hotelSummary[item.hotel] = 0;
+                    }
+                    hotelSummary[item.hotel]++;
+                });
+                
+                console.log(`📈 Final structured data summary:`);
+                console.log(`   Total records: ${structuredData.length}`);
+                console.log(`   Hotels found:`, Object.keys(hotelSummary));
+                console.log(`   Records per hotel:`, hotelSummary);
+                console.log(`   LKYT records:`, hotelSummary['LKYT'] || 0);
                 
                 return { data: structuredData, headers: finalHeaders };
             } catch (error) {
@@ -793,7 +899,7 @@
 
                 // 1. Handle if the cell is a number (likely an Excel date serial)
                 if (typeof periodCell === 'number') {
-                    // Add a sanity check to avoid converting regular numbers like "2025".
+                    // Add a sanity check to avoid converting regular numbers like "2025". 
                     // Excel serial numbers for dates around this era are > 40000.
                     if (periodCell > 40000 && periodCell < 60000) { // Dates from ~2010 to ~2065
                         const date = excelSerialToDate(periodCell);
@@ -840,17 +946,27 @@
                     }
                 }
 
-                // Handle month name patterns
-                const monthPattern = `^(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)$`;
+                // Handle month name patterns (including simple cases like "Jan", "Feb", etc.)
+                const monthPattern = `^(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?|AVG|avg|Average|AVERAGE|Total|TOTAL)$`;
                 const mainRegex = new RegExp(monthPattern, 'i');
                 const match = periodRaw.match(mainRegex);
 
                 if (match) {
                     const monthStr = match[1];
-                    const month = monthStr.charAt(0).toUpperCase() + monthStr.slice(1, 3).toLowerCase();
+                    let month;
+                    
+                    // Handle special cases
+                    if (monthStr.toLowerCase().includes('avg')) {
+                        month = 'AVG';
+                    } else if (monthStr.toLowerCase().includes('total')) {
+                        month = 'Total';
+                    } else {
+                        month = monthStr.charAt(0).toUpperCase() + monthStr.slice(1, 3).toLowerCase();
+                    }
+                    
                     // Use defaultYear from filename if available, otherwise current year
                     const year = defaultYear || new Date().getFullYear();
-                    return `${month}-${year}`;
+                    return month === 'AVG' || month === 'Total' ? month : `${month}-${year}`;
                 }
 
                 return null;
@@ -907,15 +1023,23 @@
                                 throw new Error("HR Parser found no data.");
                             }
                         } catch (hrError) {
-                            console.warn(`HR Parser failed for sheet "${sheetName}", falling back to generic parser. Reason: ${hrError.message}`);
+                            console.warn(`HR Parser failed for sheet "${sheetName}", trying simple monthly parser. Reason: ${hrError.message}`);
                             try {
-                                const genericResult = parseGenericData(dataAsArray);
-                                if (genericResult && genericResult.data && genericResult.data.length > 0) {
-                                    parsedResult = genericResult;
+                                const simpleResult = parseSimpleMonthlyData(dataAsArray, fileYear);
+                                if (simpleResult && simpleResult.data && simpleResult.data.length > 0) {
+                                    parsedResult = simpleResult;
                                 }
-                            } catch (genericError) {
-                                console.error(`Generic parser also failed for sheet "${sheetName}":`, genericError);
-                                throw new Error(`ไม่สามารถประมวลผลข้อมูลจาก sheet "${sheetName}" ได้ด้วยทั้ง HR และ Generic parser`);
+                            } catch (simpleError) {
+                                console.warn(`Simple monthly parser failed for sheet "${sheetName}", falling back to generic parser. Reason: ${simpleError.message}`);
+                                try {
+                                    const genericResult = parseGenericData(dataAsArray);
+                                    if (genericResult && genericResult.data && genericResult.data.length > 0) {
+                                        parsedResult = genericResult;
+                                    }
+                                } catch (genericError) {
+                                    console.error(`All parsers failed for sheet "${sheetName}":`, genericError);
+                                    throw new Error(`ไม่สามารถประมวลผลข้อมูลจาก sheet "${sheetName}" ได้ด้วย parser ทั้งหมด`);
+                                }
                             }
                         }
                         
@@ -1076,36 +1200,118 @@
         }
 
         /**
-         * ลบแถวที่มีค่า null หรือ empty ทั้งแถว
+         * ลบแถวที่มีค่า null หรือ empty ทั้งแถว และป้องกันข้อมูลซ้ำ (ปรับปรุงแล้ว)
          */
         function removeEmptyRows() {
             try {
                 const initialCount = fullOriginalData.length;
+                console.log(`🔄 เริ่มทำความสะอาดข้อมูล: ${initialCount} แถว`);
+                console.log(`Headers ปัจจุบัน:`, headers);
                 
-                fullOriginalData = fullOriginalData.filter(row => {
-                    // ตรวจสอบว่าทุกคอลัมน์ในแถวนี้เป็น null, undefined, หรือ empty string หรือไม่
-                    const hasAnyValue = headers.some(header => {
+                // Step 1: แก้ไข headers ที่ซ้ำกัน
+                const cleanedHeaders = fixDuplicateHeaders(headers);
+                if (cleanedHeaders.length !== headers.length || cleanedHeaders.some((h, i) => h !== headers[i])) {
+                    console.log(`🔧 แก้ไข headers ซ้ำ:`, cleanedHeaders);
+                    headers = cleanedHeaders;
+                    allHeaders = [...headers];
+                    
+                    // อัพเดทข้อมูลให้ตรงกับ headers ใหม่
+                    fullOriginalData = fullOriginalData.map(row => {
+                        const newRow = {};
+                        headers.forEach(header => {
+                            newRow[header] = row[header] || null;
+                        });
+                        return newRow;
+                    });
+                }
+                
+                // Step 2: กรองแถวที่มีข้อมูลจริง
+                const rowsWithData = fullOriginalData.filter(row => {
+                    // ตรวจสอบว่ามีค่าที่มีความหมายในแถวนี้หรือไม่
+                    const significantValues = headers.filter(header => {
                         const value = row[header];
-                        return value !== null && 
-                               value !== undefined && 
-                               String(value).trim() !== '' &&
-                               String(value).trim() !== 'null' &&
-                               String(value).trim() !== 'NULL';
+                        if (value === null || value === undefined) return false;
+                        const strValue = String(value).trim();
+                        if (strValue === '' || strValue.toLowerCase() === 'null' || strValue === '0') return false;
+                        return strValue.length > 0;
                     });
                     
-                    return hasAnyValue; // เก็บแถวที่มีค่าอย่างน้อย 1 คอลัมน์
+                    // ต้องมีข้อมูลอย่างน้อย 1 คอลัมน์ที่มีความหมาย
+                    return significantValues.length > 0;
                 });
+                
+                console.log(`📊 หลังกรองแถวว่าง: ${rowsWithData.length} แถว`);
+                
+                // Step 3: ลบข้อมูลซ้ำ
+                const uniqueRowsMap = new Map();
+                const deduplicatedData = [];
+                
+                rowsWithData.forEach((row, index) => {
+                    // สร้าง signature ของแถวโดยดูจากค่าที่มีความหมาย
+                    const rowSignature = headers.map(header => {
+                        const value = row[header];
+                        if (value === null || value === undefined) return '';
+                        return String(value).trim().toLowerCase();
+                    }).join('|||');
+                    
+                    // ตรวจสอบว่า signature นี้ซ้ำหรือไม่
+                    if (!uniqueRowsMap.has(rowSignature)) {
+                        uniqueRowsMap.set(rowSignature, index);
+                        deduplicatedData.push(row);
+                    } else {
+                        console.log(`🔍 พบข้อมูลซ้ำที่แถว ${index + 1}`);
+                    }
+                });
+                
+                console.log(`✅ หลังลบข้อมูลซ้ำ: ${deduplicatedData.length} แถว`);
+                
+                // Step 4: อัพเดทข้อมูล
+                fullOriginalData = deduplicatedData;
+                originalData = [...fullOriginalData];
                 
                 const removedCount = initialCount - fullOriginalData.length;
                 if (removedCount > 0) {
-                    console.log(`ลบแถวว่างออกไปแล้ว ${removedCount} แถว จาก ${initialCount} แถว`);
+                    console.log(`🎯 สรุป: ลบแถวว่างและซ้ำ ${removedCount} แถว จาก ${initialCount} แถว (เหลือ ${fullOriginalData.length} แถว)`);
                 }
                 
-                originalData = [...fullOriginalData];
+                // Step 5: ตรวจสอบผลลัพธ์
+                if (fullOriginalData.length === 0) {
+                    console.warn('⚠️ ไม่มีข้อมูลเหลืออยู่หลังการกรอง!');
+                    alert('ไม่พบข้อมูลที่สามารถแสดงได้ กรุณาตรวจสอบไฟล์ข้อมูล');
+                }
                 
             } catch (error) {
-                console.error('Error in removeEmptyRows:', error);
+                console.error('❌ Error in removeEmptyRows:', error);
+                alert(`เกิดข้อผิดพลาดในการทำความสะอาดข้อมูล: ${error.message}`);
             }
+        }
+        
+        /**
+         * แก้ไข headers ที่ซ้ำกันโดยเพิ่มหมายเลข
+         */
+        function fixDuplicateHeaders(originalHeaders) {
+            const headerCounts = {};
+            const fixedHeaders = [];
+            
+            originalHeaders.forEach(header => {
+                const cleanHeader = String(header || '').trim();
+                if (!cleanHeader) {
+                    fixedHeaders.push(`Column_${fixedHeaders.length + 1}`);
+                    return;
+                }
+                
+                // นับจำนวนการซ้ำ
+                headerCounts[cleanHeader] = (headerCounts[cleanHeader] || 0) + 1;
+                
+                // ถ้าซ้ำ ให้เพิ่มหมายเลข
+                if (headerCounts[cleanHeader] > 1) {
+                    fixedHeaders.push(`${cleanHeader}_${headerCounts[cleanHeader]}`);
+                } else {
+                    fixedHeaders.push(cleanHeader);
+                }
+            });
+            
+            return fixedHeaders;
         }
 
         function detectNumericHeaders() {
@@ -1121,6 +1327,72 @@
                 
                 return (numericCount / nonEmptyValues.length) >= 0.7;
             });
+        }
+        
+        /**
+         * ฟังก์ชันสำหรับ debug ข้อมูล Excel อย่างละเอียด
+         */
+        function debugExcelData() {
+            console.log('=== 🔍 EXCEL DATA DEBUG ===');
+            console.log('📄 Current fileName:', currentFileName);
+            console.log('📊 Current sheet:', currentSheetName);
+            
+            if (workbookDataStore && Object.keys(workbookDataStore).length > 0) {
+                console.log('📚 Available sheets:', Object.keys(workbookDataStore));
+                
+                Object.keys(workbookDataStore).forEach(sheetName => {
+                    const sheetInfo = workbookDataStore[sheetName];
+                    console.log(`\n--- Sheet: ${sheetName} ---`);
+                    console.log('📋 Original headers:', sheetInfo.headers);
+                    console.log('🔢 Header count:', sheetInfo.headers?.length || 0);
+                    console.log('📈 Data rows:', sheetInfo.data?.length || 0);
+                    
+                    if (sheetInfo.data && sheetInfo.data.length > 0) {
+                        console.log('📝 First row sample:', sheetInfo.data[0]);
+                        console.log('🗂️ All keys in first row:', Object.keys(sheetInfo.data[0]));
+                    }
+                });
+            }
+            
+            if (fullOriginalData && fullOriginalData.length > 0) {
+                console.log('\n--- Current Active Data ---');
+                console.log('📋 Active headers:', headers);
+                console.log('🔢 Active header count:', headers.length);
+                console.log('📈 Active data rows:', fullOriginalData.length);
+                console.log('📝 First active row:', fullOriginalData[0]);
+                console.log('🗂️ Keys in first active row:', Object.keys(fullOriginalData[0]));
+            }
+            
+            console.log('============================');
+        }
+        
+        /**
+         * ฟังก์ชันสำหรับ debug ข้อมูล
+         */
+        function debugDataInfo() {
+            console.log('=== 🔍 DEBUG DATA INFO ===');
+            console.log('📋 Headers:', headers);
+            console.log('📊 Headers length:', headers.length);
+            console.log('🔢 Numeric headers:', numericHeaders);
+            console.log('📈 Total rows:', fullOriginalData.length);
+            
+            if (fullOriginalData.length > 0) {
+                console.log('📝 Data sample (first 3 rows):');
+                fullOriginalData.slice(0, 3).forEach((row, index) => {
+                    console.log(`Row ${index + 1}:`, row);
+                });
+                
+                // ตรวจสอบ headers ซ้ำ
+                const headerCounts = {};
+                headers.forEach(header => {
+                    headerCounts[header] = (headerCounts[header] || 0) + 1;
+                });
+                const duplicates = Object.entries(headerCounts).filter(([_, count]) => count > 1);
+                if (duplicates.length > 0) {
+                    console.warn('⚠️ Headers ที่ซ้ำ:', duplicates);
+                }
+            }
+            console.log('========================');
         }
         
         function generateDashboardTemplates(sheetName) {
@@ -1478,9 +1750,23 @@
             
             renderSheetSwitcher();
             
+            console.log('🔄 เริ่มทำความสะอาดข้อมูล...');
+            
+            // Debug ข้อมูล Excel อย่างละเอียด
+            console.log('📊 ข้อมูล Excel ต้นฉบับ:');
+            debugExcelData();
+            
+            // Debug ข้อมูลก่อนทำความสะอาด
+            console.log('📊 ข้อมูลก่อนทำความสะอาด:');
+            debugDataInfo();
+            
             detectNumericHeaders();
             removeEmptyRows(); // ลบแถวว่างก่อนประมวลผลข้อมูล
             convertNumericColumns();
+            
+            // Debug ข้อมูลหลังทำความสะอาด
+            console.log('📊 ข้อมูลหลังทำความสะอาด:');
+            debugDataInfo();
 
             sortKey = headers.length > 0 ? headers[0] : '';
             renderTableHeader();
@@ -1494,6 +1780,8 @@
             } else {
                 applyFiltersAndRender();
             }
+            
+            console.log('✅ Dashboard initialization เสร็จสิ้น');
         }
 
         function renderTableHeader() {
@@ -1505,7 +1793,34 @@
                 const th = document.createElement('th');
                 th.className = 'p-1 sortable-header';
                 th.dataset.sortKey = header;
-                th.textContent = header;
+                
+                // สร้าง wrapper สำหรับ header text และ sort indicator
+                const headerWrapper = document.createElement('div');
+                headerWrapper.className = 'd-flex align-items-center justify-content-center position-relative';
+                
+                const headerText = document.createElement('span');
+                headerText.textContent = header;
+                headerText.className = 'me-1';
+                
+                // เพิ่ม icon สำหรับคอลัมน์เดือน
+                const isMonthCol = isMonthColumnType(header);
+                if (isMonthCol) {
+                    const monthIcon = document.createElement('i');
+                    monthIcon.className = 'bi bi-calendar3 me-1 text-info';
+                    monthIcon.title = 'คอลัมน์เดือน - จะเรียงตามลำดับเดือน';
+                    headerWrapper.appendChild(monthIcon);
+                }
+                
+                headerWrapper.appendChild(headerText);
+                
+                // เพิ่ม sort icon
+                const sortIcon = document.createElement('i');
+                sortIcon.className = 'bi bi-arrow-down-up sort-icon ms-1';
+                sortIcon.style.fontSize = '12px';
+                sortIcon.style.opacity = '0.5';
+                headerWrapper.appendChild(sortIcon);
+                
+                th.appendChild(headerWrapper);
                 
                 // ใช้ styling แบบ Excel เสมอ
                 th.style.cssText = `
@@ -1519,14 +1834,19 @@
                     overflow: hidden;
                     text-overflow: ellipsis;
                     font-size: 13px;
+                    min-width: 120px;
                 `;
                 
                 // เพิ่ม hover effect
                 th.addEventListener('mouseenter', () => {
                     th.style.backgroundColor = '#e9ecef';
+                    sortIcon.style.opacity = '1';
                 });
                 th.addEventListener('mouseleave', () => {
                     th.style.backgroundColor = '#f6f8fa';
+                    if (sortKey !== header) {
+                        sortIcon.style.opacity = '0.5';
+                    }
                 });
                 
                 tr.appendChild(th);
@@ -1688,23 +2008,140 @@
         function sortData() {
             if (!sortKey) return;
             const isNumeric = numericHeaders.includes(sortKey);
+            const isMonthColumn = isMonthColumnType(sortKey);
             
             filteredData.sort((a, b) => {
                 let valA = a[sortKey];
                 let valB = b[sortKey];
-                if (isNumeric) { valA = valA || 0; valB = valB || 0; } 
-                else { valA = String(valA || '').toLowerCase(); valB = String(valB || '').toLowerCase(); }
+                
+                // Handle null/undefined values
+                if (valA === null || valA === undefined) valA = '';
+                if (valB === null || valB === undefined) valB = '';
+                
+                // Handle month sorting
+                if (isMonthColumn) {
+                    const monthOrderA = getMonthOrder(valA);
+                    const monthOrderB = getMonthOrder(valB);
+                    
+                    // If both are valid months, sort by month order
+                    if (monthOrderA !== -1 && monthOrderB !== -1) {
+                        if (monthOrderA < monthOrderB) return sortDir === 'asc' ? -1 : 1;
+                        if (monthOrderA > monthOrderB) return sortDir === 'asc' ? 1 : -1;
+                        return 0;
+                    }
+                    // If only one is a valid month, put valid months first
+                    if (monthOrderA !== -1 && monthOrderB === -1) return sortDir === 'asc' ? -1 : 1;
+                    if (monthOrderA === -1 && monthOrderB !== -1) return sortDir === 'asc' ? 1 : -1;
+                    // If neither is a valid month, fall through to normal sorting
+                }
+                
+                // Handle numeric sorting
+                if (isNumeric) { 
+                    valA = valA || 0; 
+                    valB = valB || 0; 
+                } else { 
+                    valA = String(valA).toLowerCase(); 
+                    valB = String(valB).toLowerCase(); 
+                }
+                
                 if (valA < valB) return sortDir === 'asc' ? -1 : 1;
                 if (valA > valB) return sortDir === 'asc' ? 1 : -1;
                 return 0;
             });
             updateSortIndicators();
         }
+        
+        /**
+         * ตรวจสอบว่าคอลัมน์นั้นเป็นคอลัมน์เดือนหรือไม่
+         */
+        function isMonthColumnType(columnName) {
+            if (!columnName) return false;
+            
+            // ตรวจสอบชื่อคอลัมน์ที่แสดงว่าเป็นเดือน
+            const monthColumnNames = ['period', 'month', 'เดือน', 'ช่วงเวลา'];
+            if (monthColumnNames.some(name => columnName.toLowerCase().includes(name.toLowerCase()))) {
+                return true;
+            }
+            
+            // ตรวจสอบค่าในคอลัมน์ว่ามีรูปแบบเดือนหรือไม่
+            const sampleValues = filteredData.slice(0, 10).map(row => row[columnName]).filter(val => val);
+            if (sampleValues.length === 0) return false;
+            
+            const monthLikeCount = sampleValues.filter(val => getMonthOrder(val) !== -1).length;
+            return (monthLikeCount / sampleValues.length) >= 0.7; // ถ้า 70% ของตัวอย่างเป็นเดือน
+        }
+        
+        /**
+         * แปลงค่าเดือนเป็นลำดับตัวเลข (0-11 สำหรับ Jan-Dec, 12 สำหรับ Avg/Total)
+         */
+        function getMonthOrder(value) {
+            if (!value) return -1;
+            
+            const strValue = String(value).trim().toLowerCase();
+            
+            // รูปแบบ "mmm-yyyy" เช่น "jan-2024"
+            const monthYearMatch = strValue.match(/^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)-(\d{4})$/);
+            if (monthYearMatch) {
+                const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+                const monthIndex = monthNames.indexOf(monthYearMatch[1]);
+                const year = parseInt(monthYearMatch[2]);
+                // คืนค่าที่รวมปีและเดือน เพื่อให้เรียงได้ถูกต้องข้ามปี
+                return year * 12 + monthIndex;
+            }
+            
+            // รูปแบบเดือนเดี่ยว
+            const monthNames = {
+                'jan': 0, 'january': 0, 'มกราคม': 0, 'ม.ค.': 0,
+                'feb': 1, 'february': 1, 'กุมภาพันธ์': 1, 'ก.พ.': 1,
+                'mar': 2, 'march': 2, 'มีนาคม': 2, 'มี.ค.': 2,
+                'apr': 3, 'april': 3, 'เมษายน': 3, 'เม.ย.': 3,
+                'may': 4, 'พฤษภาคม': 4, 'พ.ค.': 4,
+                'jun': 5, 'june': 5, 'มิถุนายน': 5, 'มิ.ย.': 5,
+                'jul': 6, 'july': 6, 'กรกฎาคม': 6, 'ก.ค.': 6,
+                'aug': 7, 'august': 7, 'สิงหาคม': 7, 'ส.ค.': 7,
+                'sep': 8, 'september': 8, 'กันยายน': 8, 'ก.ย.': 8,
+                'oct': 9, 'october': 9, 'ตุลาคม': 9, 'ต.ค.': 9,
+                'nov': 10, 'november': 10, 'พฤศจิกายน': 10, 'พ.ย.': 10,
+                'dec': 11, 'december': 11, 'ธันวาคม': 11, 'ธ.ค.': 11,
+                'avg': 12, 'average': 12, 'total': 12, 'รวม': 12, 'เฉลี่ย': 12
+            };
+            
+            for (const [key, order] of Object.entries(monthNames)) {
+                if (strValue.includes(key)) {
+                    return order;
+                }
+            }
+            
+            // ตรวจสอบรูปแบบตัวเลขเดือน (1-12)
+            const numMatch = strValue.match(/^(\d{1,2})$/);
+            if (numMatch) {
+                const num = parseInt(numMatch[1]);
+                if (num >= 1 && num <= 12) {
+                    return num - 1; // แปลง 1-12 เป็น 0-11
+                }
+            }
+            
+            return -1; // ไม่ใช่เดือน
+        }
 
         function updateSortIndicators() {
             tableHeaderEl.querySelectorAll('th').forEach(th => {
-                th.classList.remove('sort-asc', 'sort-desc');
-                if (th.dataset.sortKey === sortKey) th.classList.add(sortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+                const sortIcon = th.querySelector('.sort-icon');
+                if (!sortIcon) return;
+                
+                // Reset all icons
+                sortIcon.className = 'bi bi-arrow-down-up sort-icon ms-1';
+                sortIcon.style.opacity = '0.5';
+                
+                // Update active sort column
+                if (th.dataset.sortKey === sortKey) {
+                    sortIcon.style.opacity = '1';
+                    if (sortDir === 'asc') {
+                        sortIcon.className = 'bi bi-arrow-up sort-icon ms-1 text-primary';
+                    } else {
+                        sortIcon.className = 'bi bi-arrow-down sort-icon ms-1 text-primary';
+                    }
+                }
             });
         }
 
@@ -1714,7 +2151,7 @@
             const colSelect = getEl('kpi-column');
             const colContainer = getEl('kpi-column-container');
             
-            calcSelect.innerHTML = `<option value="">-- เลือก --</option><option value="sum">ผลรวม (Sum)</option><option value="average">ค่าเฉลี่ย (Average)</option><option value="uniqueCount">จำนวนนับ (ไม่ซ้ำ)</option><option value="count">จำนวนนับ (ทั้งหมด)</option>`;
+            calcSelect.innerHTML = `<option value="">-- เลือก --</option><option value="sum">ผลรวม (Sum)</option><option value="average">ค่าเฉลี่ย (Average)</option><option value="uniqueCount">จำนวนนับ (ไม่ซ้ำ)</option><option value="count">จำนวนนับ (ทั้งหมด)</option>`; 
             
             calcSelect.onchange = () => {
                 const selection = calcSelect.value;
@@ -1850,69 +2287,335 @@
                 }
             });
         }
-        
-        function getConfigurationObject() { return { headers, userKPIs, userCharts, activeFilters }; }
-        function applyConfiguration(config) {
-            userKPIs = config.userKPIs || [];
-            userCharts = config.userCharts || [];
-            activeFilters = config.activeFilters || [];
-            filterBuilderContainer.innerHTML = '';
-            activeFilters.forEach(filter => addFilterRow(filter));
-            applyFiltersAndRender();
-        }
-        function getLocalStorageKey() { return `analyzerConfig_${currentFileName}_${currentSheetName}`; }
-        function saveStateToLocalStorage() { try { localStorage.setItem(getLocalStorageKey(), JSON.stringify(getConfigurationObject())); } catch (e) { console.error("Error saving state", e); } }
-        function loadStateFromLocalStorage() { try { const state = localStorage.getItem(getLocalStorageKey()); return state ? JSON.parse(state) : null; } catch (e) { console.error("Error loading state", e); return null; } }
-        function clearLocalStorage() { if (confirm('คุณแน่ใจหรือไม่ว่าต้องการลบการตั้งค่าที่บันทึกไว้ในเครื่องนี้?')) { localStorage.removeItem(getLocalStorageKey()); alert('ลบการตั้งค่าแล้ว'); window.location.reload(); } }
-        function saveConfigToFile() {
-            const blob = new Blob([JSON.stringify(getConfigurationObject(), null, 2)], { type: 'application/json' });
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `analyzer_config_${currentFileName}_${currentSheetName}.json`;
-            a.click(); URL.revokeObjectURL(a.href);
-        }
-        function loadConfigFromFile(event) {
-            const file = event.target.files[0]; if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const config = JSON.parse(e.target.result);
-                    if (config && Array.isArray(config.headers) && Array.isArray(config.userKPIs)) {
-                        headers = config.headers.filter(h => allHeaders.includes(h));
-                        if (headers.length === 0) { alert('ไฟล์การตั้งค่าไม่มีคอลัมน์ที่ตรงกับข้อมูลปัจจุบัน'); return; }
-                        originalData = fullOriginalData.map(fullRow => { const newRow = {}; headers.forEach(h => { newRow[h] = fullRow[h]; }); return newRow; });
-                        detectNumericHeaders();
-                        convertNumericColumns();
-                        renderTableHeader(); applyConfiguration(config); saveStateToLocalStorage();
-                        alert('นำเข้าการตั้งค่าสำเร็จ');
-                    } else { alert('ไฟล์การตั้งค่าไม่ถูกต้อง'); }
-                } catch (err) { alert('เกิดข้อผิดพลาดในการอ่านไฟล์'); console.error(err); }
-            };
-            reader.readAsText(file); event.target.value = '';
+
+        /**
+         * Parses a simple table with months as the first column (like the circled data)
+         * @param {Array<Array<any>>} sheetData - Raw data from the sheet.
+         * @param {string|null} fileYear - The year extracted from the filename, for defaulting.
+         * @returns {{data: Array<Object>, headers: Array<string>}} - The parsed flat data and its headers.
+         */
+        function parseSimpleMonthlyData(sheetData, fileYear = null) {
+            try {
+                if (!sheetData || !Array.isArray(sheetData) || sheetData.length === 0) {
+                    throw new Error("ข้อมูลชีตไม่ถูกต้องหรือว่างเปล่า");
+                }
+
+                const structuredData = [];
+                
+                // ค้นหาแถวที่มีเดือนในคอลัมน์แรก
+                let dataStartIndex = -1;
+                let headerRow = null;
+                
+                for (let i = 0; i < Math.min(sheetData.length, 10); i++) {
+                    const row = sheetData[i] || [];
+                    const firstCell = String(row[0] || '').trim().toLowerCase();
+                    
+                    // ตรวจสอบว่าคอลัมน์แรกเป็นเดือนหรือไม่
+                    const monthKeywords = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec', 'avg'];
+                    if (monthKeywords.some(month => firstCell.includes(month))) {
+                        dataStartIndex = i;
+                        // ใช้แถวก่อนหน้าเป็น header ถ้ามี
+                        if (i > 0) {
+                            headerRow = sheetData[i - 1];
+                        }
+                        break;
+                    }
+                }
+                
+                if (dataStartIndex === -1) {
+                    throw new Error("ไม่พบข้อมูลเดือนในรูปแบบที่คาดหวัง");
+                }
+                
+                // สร้าง headers จากแถว header หรือใช้ชื่อคอลัมน์ทั่วไป
+                const headers = ['period'];
+                if (headerRow && headerRow.length > 1) {
+                    for (let j = 1; j < headerRow.length; j++) {
+                        const headerValue = String(headerRow[j] || '').trim();
+                        if (headerValue) {
+                            headers.push(headerValue);
+                        } else {
+                            headers.push(`Column_${j}`);
+                        }
+                    }
+                } else {
+                    // ถ้าไม่มี header row ให้ใช้ข้อมูลจากแถวแรกเพื่อกำหนดจำนวนคอลัมน์
+                    const firstDataRow = sheetData[dataStartIndex];
+                    for (let j = 1; j < firstDataRow.length; j++) {
+                        headers.push(`Value_${j}`);
+                    }
+                }
+                
+                // แปลงข้อมูลเป็น flat structure
+                for (let i = dataStartIndex; i < sheetData.length; i++) {
+                    const row = sheetData[i] || [];
+                    const firstCell = String(row[0] || '').trim();
+                    
+                    if (!firstCell) continue;
+                    
+                    // ตรวจสอบว่าเป็นแถวที่มีเดือนหรือไม่
+                    const formattedPeriod = formatPeriod(firstCell, fileYear);
+                    if (!formattedPeriod) continue;
+                    
+                    // สร้าง row object
+                    const dataRow = { period: formattedPeriod };
+                    
+                    for (let j = 1; j < headers.length && j < row.length; j++) {
+                        const cellValue = row[j];
+                        if (cellValue !== null && cellValue !== undefined && cellValue !== '') {
+                            const numericValue = parseFloat(String(cellValue).replace(/,/g, ''));
+                            dataRow[headers[j]] = !isNaN(numericValue) ? numericValue : cellValue;
+                        } else {
+                            dataRow[headers[j]] = null;
+                        }
+                    }
+                    
+                    structuredData.push(dataRow);
+                }
+                
+                if (structuredData.length === 0) {
+                    throw new Error("ไม่พบข้อมูลที่สามารถประมวลผลได้");
+                }
+                
+                return { data: structuredData, headers: headers };
+                
+            } catch (error) {
+                console.error('Error in parseSimpleMonthlyData:', error);
+                throw error;
+            }
         }
 
-        function exportTableToCSV() {
-            if (filteredData.length === 0) { alert("ไม่มีข้อมูลให้ส่งออก"); return; }
-            const escapeCSV = (value) => { const str = String(value ?? ''); if (str.includes(',') || str.includes('"') || str.includes('\n')) return `"${str.replace(/"/g, '""')}"`; return str; };
-            const csvRows = [headers.join(','), ...filteredData.map(row => headers.map(header => escapeCSV(row[header])).join(','))];
-            const blob = new Blob([`\uFEFF${csvRows.join('\n')}`], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = `data_export_${currentFileName}_${currentSheetName}.csv`;
-            link.click(); URL.revokeObjectURL(link.href);
-        }
-        async function exportDashboardToPDF() {
-            const { jsPDF } = window.jspdf;
-            const exportArea = getEl('pdf-export-area'), actions = getEl('dashboard-actions'), pdfButton = getEl('export-pdf-btn');
-            const originalButtonText = pdfButton.innerHTML;
-            pdfButton.disabled = true; pdfButton.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>กำลังสร้าง...`; actions.style.visibility = 'hidden';
+        // --- CONFIGURATION AND STORAGE FUNCTIONS ---
+        
+        function saveStateToLocalStorage() {
             try {
-                const canvas = await html2canvas(exportArea, { scale: 2, useCORS: true });
-                const imgData = canvas.toDataURL('image/png');
-                const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-                pdf.setFont('Sarabun-Regular');
-                const pdfWidth = pdf.internal.pageSize.getWidth(), pdfHeight = pdf.internal.pageSize.getHeight();
-                const imgWidth = pdfWidth - 20, imgHeight = (canvas.height * imgWidth) / canvas.width;
-                pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
-                pdf.save(`dashboard_export_${currentFileName}_${currentSheetName}.pdf`);
-            } catch (err) { console.error("PDF Export Error: ", err); alert("เกิดข้อผิดพลาดในการสร้าง PDF"); } 
-            finally { actions.style.visibility = 'visible'; pdfButton.disabled = false; pdfButton.innerHTML = originalButtonText; }
+                const state = {
+                    fileName: currentFileName,
+                    sheetName: currentSheetName,
+                    headers: headers,
+                    activeFilters: activeFilters,
+                    userKPIs: userKPIs,
+                    userCharts: userCharts,
+                    sortKey: sortKey,
+                    sortDir: sortDir,
+                    timestamp: new Date().toISOString()
+                };
+                localStorage.setItem('dashboard-state', JSON.stringify(state));
+            } catch (error) {
+                console.error('Error saving state to localStorage:', error);
+            }
+        }
+        
+        function loadStateFromLocalStorage() {
+            try {
+                const saved = localStorage.getItem('dashboard-state');
+                if (saved) {
+                    const state = JSON.parse(saved);
+                    // Validate that the saved state matches current data
+                    if (state.fileName === currentFileName && state.sheetName === currentSheetName) {
+                        return state;
+                    }
+                }
+                return null;
+            } catch (error) {
+                console.error('Error loading state from localStorage:', error);
+                return null;
+            }
+        }
+        
+        function applyConfiguration(config) {
+            try {
+                if (config.activeFilters) {
+                    activeFilters = [...config.activeFilters];
+                    // Recreate filter UI
+                    filterBuilderContainer.innerHTML = '';
+                    activeFilters.forEach(filter => addFilterRow(filter));
+                }
+                
+                if (config.userKPIs) {
+                    userKPIs = [...config.userKPIs];
+                }
+                
+                if (config.userCharts) {
+                    userCharts = [...config.userCharts];
+                }
+                
+                if (config.sortKey) {
+                    sortKey = config.sortKey;
+                    sortDir = config.sortDir || 'asc';
+                }
+                
+                applyFiltersAndRender();
+            } catch (error) {
+                console.error('Error applying configuration:', error);
+            }
+        }
+        
+        function saveConfigToFile() {
+            try {
+                const config = {
+                    fileName: currentFileName,
+                    sheetName: currentSheetName,
+                    headers: headers,
+                    activeFilters: activeFilters,
+                    userKPIs: userKPIs,
+                    userCharts: userCharts,
+                    sortKey: sortKey,
+                    sortDir: sortDir,
+                    exportDate: new Date().toISOString(),
+                    version: "1.0"
+                };
+                
+                const dataStr = JSON.stringify(config, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(dataBlob);
+                
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `dashboard-config-${currentSheetName}-${new Date().toISOString().slice(0, 10)}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                
+                alert('การตั้งค่าถูกบันทึกเรียบร้อยแล้ว');
+            } catch (error) {
+                console.error('Error saving config to file:', error);
+                alert('เกิดข้อผิดพลาดในการบันทึกการตั้งค่า: ' + error.message);
+            }
+        }
+        
+        function loadConfigFromFile(event) {
+            try {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                if (!file.name.endsWith('.json')) {
+                    alert('กรุณาเลือกไฟล์ JSON เท่านั้น');
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const config = JSON.parse(e.target.result);
+                        
+                        // Validate config structure
+                        if (!config || typeof config !== 'object') {
+                            throw new Error('รูปแบบไฟล์ไม่ถูกต้อง');
+                        }
+                        
+                        // Apply the loaded configuration
+                        applyConfiguration(config);
+                        saveStateToLocalStorage();
+                        
+                        alert('โหลดการตั้งค่าเรียบร้อยแล้ว');
+                    } catch (error) {
+                        console.error('Error parsing config file:', error);
+                        alert('เกิดข้อผิดพลาดในการอ่านไฟล์การตั้งค่า: ' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+                
+                // Clear the input
+                event.target.value = '';
+            } catch (error) {
+                console.error('Error loading config from file:', error);
+                alert('เกิดข้อผิดพลาดในการโหลดการตั้งค่า: ' + error.message);
+            }
+        }
+        
+        function clearLocalStorage() {
+            try {
+                if (confirm('คุณต้องการลบข้อมูลที่บันทึกไว้ทั้งหมดหรือไม่?')) {
+                    localStorage.removeItem('dashboard-state');
+                    alert('ลบข้อมูลเรียบร้อยแล้ว');
+                    // Reset current state
+                    activeFilters = [];
+                    userKPIs = [];
+                    userCharts = [];
+                    filterBuilderContainer.innerHTML = '';
+                    applyFiltersAndRender();
+                }
+            } catch (error) {
+                console.error('Error clearing localStorage:', error);
+                alert('เกิดข้อผิดพลาดในการลบข้อมูล: ' + error.message);
+            }
+        }
+        
+        function exportTableToCSV() {
+            try {
+                if (!filteredData || filteredData.length === 0) {
+                    alert('ไม่มีข้อมูลสำหรับการ export');
+                    return;
+                }
+                
+                // Create CSV content
+                const csvHeaders = headers.join(',');
+                const csvRows = filteredData.map(row => {
+                    return headers.map(header => {
+                        const value = row[header];
+                        // Handle values that contain commas or quotes
+                        if (value === null || value === undefined) return '';
+                        const stringValue = String(value);
+                        if (stringValue.includes(',') || stringValue.includes('"')) {
+                            return `"${stringValue.replace(/"/g, '""')}"`;
+                        }
+                        return stringValue;
+                    }).join(',');
+                });
+                
+                const csvContent = [csvHeaders, ...csvRows].join('\n');
+                
+                // Add BOM for UTF-8
+                const bom = '\uFEFF';
+                const dataBlob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(dataBlob);
+                
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `${currentSheetName}-${new Date().toISOString().slice(0, 10)}.csv`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                
+                alert('Export CSV เรียบร้อยแล้ว');
+            } catch (error) {
+                console.error('Error exporting to CSV:', error);
+                alert('เกิดข้อผิดพลาดในการ export CSV: ' + error.message);
+            }
+        }
+        
+        function exportDashboardToPDF() {
+            try {
+                // Note: This requires jsPDF library to be included
+                if (typeof jsPDF === 'undefined') {
+                    alert('ไม่พบไลบรารี jsPDF สำหรับการ export PDF\nกรุณาใช้ฟังก์ชัน Print ของเบราว์เซอร์แทน');
+                    window.print();
+                    return;
+                }
+                
+                // Create PDF using jsPDF (simplified version)
+                const pdf = new jsPDF();
+                pdf.text(`Dashboard: ${currentSheetName}`, 20, 20);
+                pdf.text(`File: ${currentFileName}`, 20, 30);
+                pdf.text(`Generated: ${new Date().toLocaleDateString('th-TH')}`, 20, 40);
+                
+                // Add KPI summary
+                let yPos = 60;
+                pdf.text('KPIs:', 20, yPos);
+                userKPIs.forEach((kpi, index) => {
+                    yPos += 10;
+                    pdf.text(`${kpi.title}: ${kpi.calculation}`, 25, yPos);
+                });
+                
+                pdf.save(`dashboard-${currentSheetName}-${new Date().toISOString().slice(0, 10)}.pdf`);
+                alert('Export PDF เรียบร้อยแล้ว');
+            } catch (error) {
+                console.error('Error exporting to PDF:', error);
+                alert('เกิดข้อผิดพลาดในการ export PDF: ' + error.message + '\nกรุณาใช้ฟังก์ชัน Print ของเบราว์เซอร์แทน');
+                window.print();
+            }
         }
 
         function init() {
@@ -1951,40 +2654,53 @@
                 startHeaderConfigurationFlow(Object.keys(workbookDataStore));
             });
 
-            getEl('save-config-btn').addEventListener('click', saveConfigToFile);
-            getEl('load-config-btn').addEventListener('click', () => getEl('load-config-input').click());
-            getEl('load-config-input').addEventListener('change', loadConfigFromFile);
+            getEl('save-config-btn') && getEl('save-config-btn').addEventListener('click', saveConfigToFile);
+            getEl('load-config-btn') && getEl('load-config-btn').addEventListener('click', () => getEl('load-config-input').click());
+            getEl('load-config-input') && getEl('load-config-input').addEventListener('change', loadConfigFromFile);
             
-            // Toggle Excel format mode
-            getEl('toggle-excel-format-btn').addEventListener('click', (e) => {
-                e.preventDefault();
-                isExcelFormatEnabled = !isExcelFormatEnabled;
-                const statusElement = getEl('excel-format-status');
-                if (isExcelFormatEnabled) {
-                    statusElement.textContent = 'เปิด';
-                    statusElement.className = 'badge bg-success ms-2';
-                } else {
-                    statusElement.textContent = 'ปิด';
-                    statusElement.className = 'badge bg-secondary ms-2';
-                }
-                // รีเฟรช table ใหม่
-                if (filteredData && filteredData.length > 0) {
-                    renderTableHeader();
-                    renderTableBody();
-                }
+            const clearStorageBtn = getEl('clear-storage-btn');
+            if (clearStorageBtn) clearStorageBtn.addEventListener('click', clearLocalStorage);
+            
+            const debugDataBtn = getEl('debug-data-btn');
+            if (debugDataBtn) debugDataBtn.addEventListener('click', () => {
+                console.log('🔍 Manual Debug Request:');
+                debugExcelData();
+                debugDataInfo();
+                alert('ข้อมูล Debug ถูกแสดงในคอนโซลแล้ว (กด F12 เพื่อดู)');
             });
-            getEl('clear-storage-btn').addEventListener('click', clearLocalStorage);
-            getEl('export-csv-btn').addEventListener('click', exportTableToCSV);
-            getEl('export-pdf-btn').addEventListener('click', exportDashboardToPDF);
+            
+            const exportCsvBtn = getEl('export-csv-btn');
+            if (exportCsvBtn) exportCsvBtn.addEventListener('click', exportTableToCSV);
+            
+            const exportPdfBtn = getEl('export-pdf-btn');
+            if (exportPdfBtn) exportPdfBtn.addEventListener('click', exportDashboardToPDF);
 
             tableHeaderEl.addEventListener('click', (e) => {
-                const header = e.target.closest('th');
+                const header = e.target.closest('th[data-sort-key]');
                 if (!header || !header.dataset.sortKey) return;
+                
                 const newSortKey = header.dataset.sortKey;
-                sortDir = sortKey === newSortKey ? (sortDir === 'asc' ? 'desc' : 'asc') : 'asc';
-                sortKey = newSortKey;
+                
+                // Toggle sort direction if same column, otherwise start with ascending
+                if (sortKey === newSortKey) {
+                    sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    sortDir = 'asc';
+                    sortKey = newSortKey;
+                }
+                
+                // Save sort preferences
+                saveStateToLocalStorage();
+                
+                // Apply sorting
                 sortData();
                 renderTableBody();
+                
+                // Add visual feedback
+                header.style.transform = 'scale(0.98)';
+                setTimeout(() => {
+                    header.style.transform = '';
+                }, 100);
             });
         }
         
