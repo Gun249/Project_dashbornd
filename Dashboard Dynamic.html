@@ -69,6 +69,114 @@
             height: 150px;
             position: relative;
         }
+        
+        /* Excel-like table styling */
+        .table {
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 13px;
+            font-family: 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        .table th, .table td {
+            border: 1px solid #d0d7de;
+            padding: 6px 12px;
+            margin: 0;
+            line-height: 1.4;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 200px;
+            min-width: 100px;
+        }
+        
+        .table th {
+            background: linear-gradient(to bottom, #f8f9fa 0%, #e9ecef 100%);
+            font-weight: 600;
+            border-bottom: 2px solid #d0d7de;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            text-align: center;
+            color: #495057;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .table tbody tr {
+            transition: background-color 0.15s ease;
+        }
+        
+        .table tbody tr:hover {
+            background-color: #f1f8ff !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .table tbody tr:nth-child(even) {
+            background-color: #fafbfc;
+        }
+        
+        .table tbody tr:nth-child(odd) {
+            background-color: #ffffff;
+        }
+        
+        .table-responsive {
+            border: 1px solid #d0d7de;
+            border-radius: 8px;
+            overflow: auto;
+            max-height: 600px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Excel number formatting */
+        .excel-number {
+            text-align: right;
+            font-family: 'SF Mono', Consolas, Monaco, 'Lucida Console', monospace;
+            font-variant-numeric: tabular-nums;
+            color: #0969da;
+        }
+        
+        .excel-date {
+            text-align: center;
+            color: #8250df;
+        }
+        
+        .excel-text {
+            text-align: left;
+            color: #24292f;
+        }
+        
+        /* Sort indicators */
+        .sortable-header:hover {
+            background: linear-gradient(to bottom, #e9ecef 0%, #dee2e6 100%) !important;
+            transform: translateY(-1px);
+        }
+        
+        .sort-asc::after {
+            content: ' ▲';
+            font-size: 0.8em;
+            color: #0969da;
+            margin-left: 4px;
+        }
+        
+        .sort-desc::after {
+            content: ' ▼';
+            font-size: 0.8em;
+            color: #0969da;
+            margin-left: 4px;
+        }
+        
+        /* Cell animations */
+        .table td {
+            transition: all 0.2s ease;
+        }
+        
+        .table td:hover {
+            background-color: #f1f8ff;
+            transform: scale(1.02);
+            z-index: 5;
+            position: relative;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
     </style>
 </head>
 <body>
@@ -81,7 +189,7 @@
                 <h1 class="mb-3">Dashboard Dynamic</h1>
                 <p class="text-muted">โปรดอัปโหลดไฟล์ Excel (.xlsx, .xls) เพื่อเริ่มต้นการวิเคราะห์</p>
                 <hr class="my-4">
-                <input type="file" id="excel-input" class="form-control form-control-lg" accept=".xlsx, .xls">
+                <input type="file" id="excel-input" class="form-control form-control-lg" accept=".xlsx, .xls, .csv">
                 <div id="loading-spinner" class="text-center mt-4" style="display: none;">
                     <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
                     <p class="mt-2" id="loading-status">กำลังประมวลผลไฟล์...</p>
@@ -227,15 +335,22 @@
     </div>
 
 
-    <div class="modal fade" id="header-select-modal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <!-- New Multi-Sheet Header Configuration Modal -->
+    <div class="modal fade" id="header-config-modal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-          <div class="modal-header"><h5 class="modal-title">เลือกคอลัมน์ (Headers) ที่จะใช้</h5></div>
-          <div class="modal-body">
-            <p class="text-muted">เลือกคอลัมน์ที่คุณต้องการนำมาวิเคราะห์ในแดชบอร์ด</p>
-            <div id="header-select-list" class="list-group header-select-list"></div>
+          <div class="modal-header">
+            <h5 class="modal-title" id="header-config-modal-title">ตั้งค่าคอลัมน์</h5>
           </div>
-          <div class="modal-footer"><button type="button" class="btn btn-primary" id="apply-header-select-button">ดำเนินการต่อ</button></div>
+          <div class="modal-body">
+            <p class="text-muted">กรุณาเลือกคอลัมน์ที่ต้องการใช้งานสำหรับชีตนี้</p>
+            <div id="header-config-list" class="list-group header-select-list">
+                <!-- Header checkboxes will be injected here -->
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-primary" id="next-header-config-btn">Next Sheet</button>
+          </div>
         </div>
       </div>
     </div>
@@ -307,7 +422,12 @@
         let sortKey = '';
         let sortDir = 'asc';
         
-        let sheetSelectModal, headerSelectModal, kpiModal, createChartModal, templateSelectModal;
+        let sheetSelectModal, headerConfigModal, kpiModal, createChartModal, templateSelectModal;
+        
+        // --- State for Header Configuration Flow ---
+        let sheetsToConfigure = [];
+        let currentConfigSheetIndex = 0;
+
 
         // --- DOM ELEMENTS ---
         const getEl = (id) => document.getElementById(id);
@@ -331,233 +451,611 @@
 
         // --- FILE & DATA LOADING ---
 
-        function processInChunks(array, processItem, onComplete, chunkSize = 2000) {
-            let index = 0;
-            const total = array.length;
-            
-            function chunk() {
-                const end = Math.min(index + chunkSize, total);
-                for (; index < end; index++) {
-                    processItem(array[index]);
+        function handleFileSelection(event) {
+            try {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                // Validate file type
+                if (!file.name.match(/\.(xlsx?|csv)$/i)) {
+                    uploadErrorEl.textContent = "กรุณาเลือกไฟล์ Excel (.xlsx, .xls) หรือ CSV เท่านั้น";
+                    return;
                 }
-                loadingStatusEl.textContent = `กำลังประมวลผลข้อมูล... แถวที่ ${index.toLocaleString()} จาก ${total.toLocaleString()}`;
-                if (index < total) {
-                    requestAnimationFrame(chunk);
-                } else {
-                    onComplete();
+                
+                // Validate file size (max 10MB)
+                if (file.size > 10 * 1024 * 1024) {
+                    uploadErrorEl.textContent = "ไฟล์มีขนาดใหญ่เกินไป (สูงสุด 10MB)";
+                    return;
                 }
+                
+                currentFileName = file.name;
+                loadingSpinner.style.display = 'block';
+                uploadErrorEl.textContent = '';
+                loadingStatusEl.textContent = 'กำลังอ่านไฟล์...';
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                         setTimeout(() => {
+                            try {
+                                workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: false });
+                                
+                                if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) {
+                                    throw new Error("ไฟล์ไม่มีชีตข้อมูลหรือไฟล์เสียหาย");
+                                }
+
+                                if (workbook.SheetNames.length === 1) {
+                                    processAndStoreSheets([workbook.SheetNames[0]]);
+                                } else {
+                                    const sheetListContainer = getEl('sheet-list');
+                                    sheetListContainer.innerHTML = '';
+                                    workbook.SheetNames.forEach(name => {
+                                        const item = document.createElement('label');
+                                        item.className = 'list-group-item';
+                                        item.innerHTML = `<input class="form-check-input me-2" type="checkbox" value="${name}" checked> ${name}`;
+                                        sheetListContainer.appendChild(item);
+                                    });
+                                    loadingSpinner.style.display = 'none';
+                                    sheetSelectModal.show();
+                                }
+                            } catch (error) {
+                                uploadErrorEl.textContent = "เกิดข้อผิดพลาดในการอ่านไฟล์: " + error.message;
+                                loadingSpinner.style.display = 'none';
+                            }
+                        }, 10);
+                    } catch (error) {
+                        uploadErrorEl.textContent = "เกิดข้อผิดพลาดในการประมวลผลไฟล์: " + error.message;
+                        loadingSpinner.style.display = 'none';
+                    }
+                };
+                reader.onerror = () => { 
+                    uploadErrorEl.textContent = "ไม่สามารถอ่านไฟล์ได้ กรุณาตรวจสอบไฟล์และลองใหม่"; 
+                    loadingSpinner.style.display = 'none';
+                };
+                reader.readAsArrayBuffer(file);
+                excelInput.value = '';
+            } catch (error) {
+                uploadErrorEl.textContent = "เกิดข้อผิดพลาดในการเลือกไฟล์: " + error.message;
+                loadingSpinner.style.display = 'none';
             }
-            chunk();
         }
 
-        function handleFileSelection(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            currentFileName = file.name;
-            loadingSpinner.style.display = 'block';
-            uploadErrorEl.textContent = '';
-            loadingStatusEl.textContent = 'กำลังอ่านไฟล์...';
-            
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                     setTimeout(() => {
-                        workbook = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-                        if (workbook.SheetNames.length === 1) {
-                            processAndStoreSheets([workbook.SheetNames[0]]);
-                        } else {
-                            const sheetListContainer = getEl('sheet-list');
-                            sheetListContainer.innerHTML = '';
-                            workbook.SheetNames.forEach(name => {
-                                const item = document.createElement('label');
-                                item.className = 'list-group-item';
-                                item.innerHTML = `<input class="form-check-input me-2" type="checkbox" value="${name}" checked> ${name}`;
-                                sheetListContainer.appendChild(item);
-                            });
-                            loadingSpinner.style.display = 'none';
-                            sheetSelectModal.show();
-                        }
-                    }, 10);
-                } catch (error) {
-                    uploadErrorEl.textContent = "เกิดข้อผิดพลาดในการอ่านไฟล์: " + error.message;
-                    loadingSpinner.style.display = 'none';
+        /**
+         * Parses a sheet with a complex, multi-level HR report structure.
+         * @param {Array<Array<any>>} sheetData - Raw data from the sheet.
+         * @param {string|null} fileYear - The year extracted from the filename, for defaulting.
+         * @returns {{data: Array<Object>, headers: Array<string>}} - The parsed flat data and its headers.
+         */
+        function parseHrReportData(sheetData, fileYear = null) {
+            try {
+                if (!sheetData || !Array.isArray(sheetData) || sheetData.length === 0) {
+                    throw new Error("ข้อมูลชีตไม่ถูกต้องหรือว่างเปล่า");
                 }
-            };
-            reader.onerror = () => { uploadErrorEl.textContent = "ไม่สามารถอ่านไฟล์ได้"; loadingSpinner.style.display = 'none';};
-            reader.readAsArrayBuffer(file);
-            excelInput.value = '';
+
+                const structuredData = [];
+                const finalHeaders = ['department', 'hotel', 'type', 'period', 'value'];
+
+                // --- Constants for identifying rows and columns ---
+                const HOTEL_CODES = ['CHRB', 'CRRB', 'CRST', 'ES', 'CGB', 'MHSC', 'MHRB', 'MMSB', 'SDAO', 'LKYT', 'CHRY', 'CNSJ', 'CHH'];
+                const EMPLOYMENT_TYPES = ['FT', 'CT', 'OS'];
+                const STAFFING_DEPARTMENTS = ['FO', 'HKP', 'Laundry', 'Fitness', 'F&B Service', 'Kitchen', 'A&G', 'Finance', 'Procurement', 'IT', 'HR', 'Security', 'Sales', 'Engineering', 'MarComm', 'E-Commerce', 'Commercial', 'Service Quality Assurance', 'Golf Operations', 'Golf Maintenance'];
+                const STAFFING_DEPARTMENT_SET = new Set(STAFFING_DEPARTMENTS.map(dept => dept.toUpperCase()));
+
+                let hotelRowIndex = -1, typeRowIndex = -1, periodRowIndex = -1;
+                const upperHotelCodes = HOTEL_CODES.map(c => c.toUpperCase());
+
+                // --- Find the key header rows ---
+                const searchLimit = Math.min(sheetData.length, 20);
+                for (let i = 0; i < searchLimit; i++) {
+                    try {
+                        const row = sheetData[i] || [];
+                        if (hotelRowIndex === -1 && row.some(cell => upperHotelCodes.includes(String(cell || '').trim().toUpperCase()))) hotelRowIndex = i;
+                        if (typeRowIndex === -1 && row.some(cell => EMPLOYMENT_TYPES.includes(String(cell || '').trim().toUpperCase()))) typeRowIndex = i;
+                        
+                        // Use a more robust check for the period row
+                        let dateLikeCount = row.filter(cell => formatPeriod(cell, fileYear)).length;
+                        if (periodRowIndex === -1 && dateLikeCount > 2) { // Require at least 3 date-like cells
+                            periodRowIndex = i;
+                        }
+                    } catch (error) {
+                        console.warn(`Error processing row ${i}:`, error);
+                        continue;
+                    }
+                }
+
+                if (hotelRowIndex === -1 || typeRowIndex === -1 || periodRowIndex === -1) {
+                    throw new Error("HR Parser: Could not find required header rows (Hotel, Type, or Period).");
+                }
+
+                // --- Build a context map for each column ---
+                const columnContextMap = new Map();
+                const hotelRow = sheetData[hotelRowIndex];
+                const typeRow = sheetData[typeRowIndex];
+                const periodRow = sheetData[periodRowIndex];
+                const maxCols = Math.max((hotelRow || []).length, (typeRow || []).length, (periodRow || []).length);
+
+                // Helper to find the last valid value in a row, simulating merged cells
+                const findLastValidValue = (row, colIndex, validSet) => {
+                    try {
+                        for (let k = colIndex; k >= 0; k--) {
+                            const cellValue = String((row || [])[k] || '').trim().toUpperCase();
+                            const foundValue = validSet.find(v => v.toUpperCase() === cellValue);
+                            if (foundValue) return foundValue;
+                        }
+                        return null;
+                    } catch (error) {
+                        console.warn('Error in findLastValidValue:', error);
+                        return null;
+                    }
+                };
+
+                for (let j = 1; j < maxCols; j++) {
+                    try {
+                        const currentHotel = findLastValidValue(hotelRow, j, HOTEL_CODES);
+                        const currentType = findLastValidValue(typeRow, j, EMPLOYMENT_TYPES);
+                        const formattedPeriod = formatPeriod(periodRow[j], fileYear);
+
+                        if (formattedPeriod && currentHotel && currentType) {
+                            columnContextMap.set(j, { hotel: currentHotel, type: currentType, period: formattedPeriod });
+                        }
+                    } catch (error) {
+                        console.warn(`Error processing column ${j}:`, error);
+                        continue;
+                    }
+                }
+
+                // --- Iterate through data rows and create flat records ---
+                const dataStartIndex = periodRowIndex + 1;
+                for (let i = dataStartIndex; i < sheetData.length; i++) {
+                    try {
+                        const row = sheetData[i] || [];
+                        const rawDeptName = String(row[0] || '').trim();
+                        
+                        if (!rawDeptName || rawDeptName.toUpperCase().includes('TOTAL')) continue;
+                        
+                        if (STAFFING_DEPARTMENT_SET.has(rawDeptName.toUpperCase())) {
+                            columnContextMap.forEach((context, colIndex) => {
+                                try {
+                                    const cellValue = row[colIndex];
+                                    if (cellValue !== null && cellValue !== undefined && cellValue !== '') {
+                                        const numericValue = parseFloat(String(cellValue).replace(/,/g, ''));
+                                        if (!isNaN(numericValue) && isFinite(numericValue)) {
+                                            structuredData.push({
+                                                department: rawDeptName,
+                                                hotel: context.hotel,
+                                                type: context.type,
+                                                period: context.period,
+                                                value: numericValue
+                                            });
+                                        }
+                                    }
+                                } catch (error) {
+                                    console.warn(`Error processing cell [${i}][${colIndex}]:`, error);
+                                }
+                            });
+                        }
+                    } catch (error) {
+                        console.warn(`Error processing data row ${i}:`, error);
+                        continue;
+                    }
+                }
+                
+                if (structuredData.length === 0) {
+                    throw new Error("ไม่พบข้อมูลที่สามารถประมวลผลได้ในรูปแบบ HR Report");
+                }
+                
+                return { data: structuredData, headers: finalHeaders };
+            } catch (error) {
+                console.error('Error in parseHrReportData:', error);
+                throw error;
+            }
         }
         
         /**
-         * Analyzes the first few rows of a sheet to find the most likely header row using a scoring system.
-         * @param {Array<Array<string>>} dataAsArray - The sheet data as an array of arrays.
-         * @returns {number} The index of the detected header row, or -1 if not found.
+         * Parses a generic sheet by finding the most likely header row.
+         * @param {Array<Array<any>>} dataAsArray - Raw data from the sheet.
+         * @returns {{data: Array<Object>, headers: Array<string>}} - The parsed flat data and its headers.
          */
-        function findHeaderRow(dataAsArray) {
+        function parseGenericData(dataAsArray) {
+            const headerRowIndex = findGenericHeaderRow(dataAsArray);
+            if (headerRowIndex === -1) {
+                throw new Error("Generic Parser: Could not find a valid header row.");
+            }
+
+            const rawHeaders = dataAsArray[headerRowIndex].filter(h => h && String(h).trim());
+            const dataRows = dataAsArray.slice(headerRowIndex + 1);
+
+            const jsonData = dataRows.map(row => {
+                const obj = {};
+                rawHeaders.forEach(header => {
+                    const originalIndex = dataAsArray[headerRowIndex].indexOf(header);
+                    obj[header] = row[originalIndex];
+                });
+                return obj;
+            });
+            
+            const sanitizedHeaders = rawHeaders.map(h => 
+                String(h).trim()
+                         .replace(/[.\s-()\[\]{}]/g, '_')
+                         .replace(/_+/g, '_')
+            );
+            
+            const sheetData = [];
+            jsonData.forEach(row => {
+                const newRow = {};
+                rawHeaders.forEach((originalHeader, i) => {
+                    const sanitizedHeader = sanitizedHeaders[i];
+                    newRow[sanitizedHeader] = row[originalHeader];
+                });
+                sheetData.push(newRow);
+            });
+
+            return { data: sheetData, headers: sanitizedHeaders };
+        }
+
+        /**
+         * Analyzes sheet rows to find the most likely header row for generic tables.
+         * @param {Array<Array<string>>} dataAsArray - The sheet data as an array of arrays.
+         * @returns {number} The index of the detected header row.
+         */
+        function findGenericHeaderRow(dataAsArray) {
             let bestGuess = { index: -1, score: -Infinity };
-            const searchLimit = Math.min(dataAsArray.length, 20);
+            const searchLimit = Math.min(dataAsArray.length - 1, 25); 
 
-            for (let i = 0; i < searchLimit; i++) {
-                const row = dataAsArray[i];
-                let score = 0;
-                const nonEmptyCells = row.filter(cell => cell !== null && cell !== undefined && String(cell).trim() !== '');
-
-                if (nonEmptyCells.length < 2) {
-                    continue; // Skip rows that are too sparse
-                }
-
-                nonEmptyCells.forEach(cell => {
-                    const value = String(cell);
-                    // Penalize numbers
-                    if (!isNaN(parseFloat(value)) && isFinite(value)) {
-                        score -= 1;
-                    }
-                    // Reward strings
-                    else if (typeof value === 'string') {
-                        score += 1;
-                    }
-                    // Penalize long strings (likely data)
-                    if (value.length > 50) {
-                        score -= 2;
-                    }
-                    // Penalize data-like formats
-                    if (value.includes('@') || value.includes('http')) {
-                        score -= 2;
+            const profileRow = (row) => {
+                let stringCount = 0, numberCount = 0;
+                const nonEmptyCells = [];
+                if (!row) return { stringCount, numberCount, nonEmptyCells };
+                row.forEach(cell => {
+                    const value = cell === null || cell === undefined ? '' : String(cell).trim();
+                    if (value !== '') {
+                        nonEmptyCells.push(value);
+                        const cleanVal = value.replace(/[,\s฿$€£¥]/g, '').replace(/^\((.+)\)$/, '-$1');
+                        if (!isNaN(parseFloat(cleanVal)) && isFinite(cleanVal)) numberCount++;
+                        else stringCount++;
                     }
                 });
+                return { stringCount, numberCount, nonEmptyCells };
+            };
 
-                // Give a bonus for having more columns than the previous best guess
-                score += nonEmptyCells.length * 0.5;
+            for (let i = 0; i < searchLimit; i++) {
+                const currentProfile = profileRow(dataAsArray[i]);
+                const nextProfile = profileRow(dataAsArray[i + 1]);
+                let score = 0;
+                if (currentProfile.nonEmptyCells.length < 2 || nextProfile.nonEmptyCells.length === 0) continue;
+                
+                const stringRatio = currentProfile.stringCount / currentProfile.nonEmptyCells.length;
+                score += stringRatio * 15;
+                const numberRatio = currentProfile.numberCount / currentProfile.nonEmptyCells.length;
+                score -= numberRatio * 10;
+                score += currentProfile.nonEmptyCells.length * 1.5;
+                const numberIncrease = nextProfile.numberCount - currentProfile.numberCount;
+                if (numberIncrease > 0) score += numberIncrease * 8;
+                const columnCountDifference = Math.abs(currentProfile.nonEmptyCells.length - nextProfile.nonEmptyCells.length);
+                score -= columnCountDifference * 2;
+                const uniqueness = new Set(currentProfile.nonEmptyCells).size / currentProfile.nonEmptyCells.length;
+                score += uniqueness * 5;
 
                 if (score > bestGuess.score) {
                     bestGuess.score = score;
                     bestGuess.index = i;
                 }
             }
-            return bestGuess.index;
+            return bestGuess.index === -1 ? 0 : bestGuess.index;
+        }
+        
+        // --- NEW HELPER FUNCTION ---
+        /**
+         * Converts an Excel serial number to a JavaScript Date object.
+         * @param {number} serial - The Excel serial number.
+         * @returns {Date} The converted JavaScript Date object.
+         */
+        function excelSerialToDate(serial) {
+            try {
+                // Excel date system: January 1, 1900 is day 1 (serial = 1)
+                // Excel incorrectly treats 1900 as a leap year, so we adjust for dates after Feb 28, 1900
+                
+                // For dates after Feb 28, 1900 (serial > 59), subtract 1 to correct Excel's leap year bug
+                let daysSince1900 = serial > 59 ? serial - 1 : serial;
+                
+                // Excel epoch: January 1, 1900 00:00:00 local time
+                const excelEpoch = new Date(1900, 0, 1);
+                
+                // Add the days (subtract 1 because Excel serial 1 = Jan 1, 1900, not Jan 2)
+                const resultDate = new Date(excelEpoch.getTime() + (daysSince1900 - 1) * 86400000);
+                
+                // Validate the result
+                if (isNaN(resultDate.getTime())) {
+                    throw new Error(`Invalid date calculated from serial ${serial}`);
+                }
+                
+                return resultDate;
+            } catch (error) {
+                console.error('Error converting Excel serial to date:', error);
+                return new Date(); // Return current date as fallback
+            }
+        }
+
+        /**
+         * Parses a cell value into a "Mmm-YYYY" format. Returns null if invalid.
+         * This version is stricter and handles numeric date serials manually.
+         * @param {*} periodCell - The cell value to parse.
+         * @param {string|null} defaultYear - The default year to use if not found in the cell.
+         * @returns {string|null} The formatted period string or null.
+         */
+        function formatPeriod(periodCell, defaultYear = null) {
+            try {
+                if (periodCell === null || periodCell === undefined || String(periodCell).trim() === '') {
+                    return null;
+                }
+
+                const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+                // 1. Handle if the cell is a number (likely an Excel date serial)
+                if (typeof periodCell === 'number') {
+                    // Add a sanity check to avoid converting regular numbers like "2025".
+                    // Excel serial numbers for dates around this era are > 40000.
+                    if (periodCell > 40000 && periodCell < 60000) { // Dates from ~2010 to ~2065
+                        const date = excelSerialToDate(periodCell);
+                        if (date && !isNaN(date.getTime())) {
+                             const month = monthNames[date.getMonth()];
+                             let year = date.getFullYear();
+                             
+                             // Override year if defaultYear is provided (from filename)
+                             if (defaultYear) {
+                                 year = parseInt(defaultYear) || year;
+                             }
+                             
+                             return `${month}-${year}`;
+                        }
+                    }
+                    return null;
+                }
+
+                // 2. Handle if it's already a JavaScript Date object
+                if (periodCell instanceof Date) {
+                    if (isNaN(periodCell.getTime())) {
+                        return null;
+                    }
+                    const month = monthNames[periodCell.getMonth()];
+                    const year = periodCell.getFullYear();
+                    return `${month}-${year}`;
+                }
+                
+                // 3. Handle if it's a string
+                const periodRaw = String(periodCell).trim();
+
+                // Handle DD/MM/YYYY format (Thai/European style - like 01/05/2025 = 1 May 2025)
+                const dateMatch = periodRaw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+                if (dateMatch) {
+                    const day = parseInt(dateMatch[1], 10);
+                    const month = parseInt(dateMatch[2], 10);    // Second number is month
+                    const year = parseInt(dateMatch[3], 10);
+                    
+                    // Validate the date components
+                    if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year > 1900 && year < 2100) {
+                        const monthIndex = month - 1; // Convert to 0-based index
+                        const monthName = monthNames[monthIndex];
+                        return `${monthName}-${year}`;
+                    }
+                }
+
+                // Handle month name patterns
+                const monthPattern = `^(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)$`;
+                const mainRegex = new RegExp(monthPattern, 'i');
+                const match = periodRaw.match(mainRegex);
+
+                if (match) {
+                    const monthStr = match[1];
+                    const month = monthStr.charAt(0).toUpperCase() + monthStr.slice(1, 3).toLowerCase();
+                    // Use defaultYear from filename if available, otherwise current year
+                    const year = defaultYear || new Date().getFullYear();
+                    return `${month}-${year}`;
+                }
+
+                return null;
+            } catch (error) {
+                console.error('Error in formatPeriod:', error);
+                return null;
+            }
         }
 
         function processAndStoreSheets(sheetNames) {
             try {
+                if (!sheetNames || !Array.isArray(sheetNames) || sheetNames.length === 0) {
+                    throw new Error("ไม่ได้ระบุ sheets ที่จะประมวลผล");
+                }
+
                 if (sheetSelectModal) sheetSelectModal.hide();
                 loadingSpinner.style.display = 'block';
                 uploadErrorEl.textContent = '';
                 
                 workbookDataStore = {};
+                let processedSheetCount = 0;
+                const yearMatch = currentFileName.match(/\b(20\d{2})\b/);
+                const fileYear = yearMatch ? yearMatch[1] : null;
+                const processingErrors = [];
 
                 sheetNames.forEach(sheetName => {
-                    loadingStatusEl.textContent = `กำลังอ่านชีต: ${sheetName}...`;
-                    const ws = workbook.Sheets[sheetName];
-                    if (!ws) return;
+                    try {
+                        if (!sheetName || typeof sheetName !== 'string') {
+                            throw new Error(`ชื่อ sheet ไม่ถูกต้อง: ${sheetName}`);
+                        }
 
-                    const dataAsArray = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-                    if (dataAsArray.length === 0) return;
+                        loadingStatusEl.textContent = `กำลังอ่านชีต: ${sheetName}...`;
+                        const ws = workbook.Sheets[sheetName];
+                        if (!ws) {
+                            throw new Error(`ไม่พบ worksheet: ${sheetName}`);
+                        }
 
-                    const headerRowIndex = findHeaderRow(dataAsArray);
-                    if (headerRowIndex === -1) return;
+                        const dataAsArray = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+                        if (!Array.isArray(dataAsArray)) {
+                            throw new Error(`ข้อมูลจาก sheet "${sheetName}" ไม่ใช่ array`);
+                        }
+                        
+                        if (dataAsArray.length < 5) {
+                            console.warn(`Sheet "${sheetName}" มีข้อมูลน้อยเกินไป (${dataAsArray.length} rows) - ข้าม`);
+                            return;
+                        }
 
-                    const rawHeaders = dataAsArray[headerRowIndex].filter(h => h && String(h).trim());
-                    const dataRows = dataAsArray.slice(headerRowIndex + 1);
+                        let parsedResult = null;
+                        try {
+                            const hrResult = parseHrReportData(dataAsArray, fileYear);
+                            if (hrResult && hrResult.data && hrResult.data.length > 0) {
+                                parsedResult = hrResult;
+                            } else {
+                                throw new Error("HR Parser found no data.");
+                            }
+                        } catch (hrError) {
+                            console.warn(`HR Parser failed for sheet "${sheetName}", falling back to generic parser. Reason: ${hrError.message}`);
+                            try {
+                                const genericResult = parseGenericData(dataAsArray);
+                                if (genericResult && genericResult.data && genericResult.data.length > 0) {
+                                    parsedResult = genericResult;
+                                }
+                            } catch (genericError) {
+                                console.error(`Generic parser also failed for sheet "${sheetName}":`, genericError);
+                                throw new Error(`ไม่สามารถประมวลผลข้อมูลจาก sheet "${sheetName}" ได้ด้วยทั้ง HR และ Generic parser`);
+                            }
+                        }
+                        
+                        if (parsedResult) {
+                            workbookDataStore[sheetName] = parsedResult;
+                            processedSheetCount++;
+                        }
 
-                    const jsonData = dataRows.map(row => {
-                        const obj = {};
-                        rawHeaders.forEach(header => {
-                            const originalIndex = dataAsArray[headerRowIndex].indexOf(header);
-                            obj[header] = row[originalIndex];
-                        });
-                        return obj;
-                    });
-                    
-                    const sanitizedHeaders = rawHeaders.map(h => String(h).trim().replace(/[.\s]/g, '_'));
-                    const sheetData = [];
-                    jsonData.forEach(row => {
-                        const newRow = {};
-                        rawHeaders.forEach((originalHeader, i) => {
-                            const sanitizedHeader = sanitizedHeaders[i];
-                            newRow[sanitizedHeader] = row[originalHeader];
-                        });
-                        sheetData.push(newRow);
-                    });
-
-                    workbookDataStore[sheetName] = {
-                        data: sheetData,
-                        headers: sanitizedHeaders
-                    };
+                    } catch (error) {
+                        const errorMsg = `Error processing sheet "${sheetName}": ${error.message}`;
+                        console.error(errorMsg);
+                        processingErrors.push(errorMsg);
+                    }
                 });
 
-                if (Object.keys(workbookDataStore).length === 0) {
-                    throw new Error("ไม่สามารถประมวลผลชีตที่เลือกได้ หรือชีตไม่มีข้อมูล");
+                if (processedSheetCount === 0) {
+                    const errorDetail = processingErrors.length > 0 ? `\nรายละเอียด: ${processingErrors.join('; ')}` : '';
+                    throw new Error(`ไม่สามารถหาข้อมูลที่สามารถวิเคราะห์ได้ในชีตที่เลือก${errorDetail}`);
                 }
-
-                setActiveSheet(sheetNames[0]);
+                
+                if (processingErrors.length > 0) {
+                    console.warn(`ประมวลผลได้ ${processedSheetCount}/${sheetNames.length} sheets. Errors:`, processingErrors);
+                }
+                
+                generateAndShowTemplates();
 
             } catch (error) {
+                console.error('Error in processAndStoreSheets:', error);
                 uploadErrorEl.textContent = "เกิดข้อผิดพลาดในการประมวลผล: " + error.message;
                 loadingSpinner.style.display = 'none';
+                throw error;
             }
         }
+
+        function startHeaderConfigurationFlow(sheetNames) {
+            sheetsToConfigure = sheetNames;
+            currentConfigSheetIndex = 0;
+            displaySheetForConfiguration();
+            headerConfigModal.show();
+        }
+
+        function displaySheetForConfiguration() {
+            const sheetName = sheetsToConfigure[currentConfigSheetIndex];
+            getEl('header-config-modal-title').textContent = `ตั้งค่าคอลัมน์สำหรับ: ${sheetName}`;
+            
+            const listContainer = getEl('header-config-list');
+            listContainer.innerHTML = '';
+            const allPossibleHeaders = workbookDataStore[sheetName].headers;
+
+            allPossibleHeaders.forEach(header => {
+                const item = document.createElement('label');
+                item.className = 'list-group-item';
+                item.innerHTML = `<input class="form-check-input me-2" type="checkbox" value="${header}" checked> ${header}`;
+                listContainer.appendChild(item);
+            });
+
+            const nextButton = getEl('next-header-config-btn');
+            if (currentConfigSheetIndex >= sheetsToConfigure.length - 1) {
+                nextButton.textContent = 'เสร็จสิ้น';
+            } else {
+                nextButton.textContent = 'ชีตถัดไป';
+            }
+        }
+
+        function processCurrentSheetConfiguration() {
+            const sheetName = sheetsToConfigure[currentConfigSheetIndex];
+            const selectedCheckboxes = getEl('header-config-list').querySelectorAll('input:checked');
+            const selectedHeaders = Array.from(selectedCheckboxes).map(cb => cb.value);
+
+            if (selectedHeaders.length === 0) {
+                alert(`กรุณาเลือกอย่างน้อย 1 คอลัมน์สำหรับชีต ${sheetName}`);
+                return;
+            }
+            
+            workbookDataStore[sheetName].selectedHeaders = selectedHeaders;
+            
+            currentConfigSheetIndex++;
+
+            if (currentConfigSheetIndex < sheetsToConfigure.length) {
+                displaySheetForConfiguration();
+            } else {
+                finishHeaderConfiguration();
+            }
+        }
+
+        function finishHeaderConfiguration() {
+            headerConfigModal.hide();
+            loadingSpinner.style.display = 'block';
+            loadingStatusEl.textContent = 'กำลังตั้งค่า Dashboard...';
+
+            Object.keys(workbookDataStore).forEach(sheetName => {
+                const sheetInfo = workbookDataStore[sheetName];
+                if (sheetInfo.selectedHeaders) {
+                    const selected = sheetInfo.selectedHeaders;
+                    
+                    sheetInfo.data = sheetInfo.data.map(fullRow => {
+                        const newRow = {};
+                        selected.forEach(h => {
+                            newRow[h] = fullRow[h];
+                        });
+                        return newRow;
+                    });
+                    
+                    sheetInfo.headers = selected;
+                }
+            });
+
+            setActiveSheet(Object.keys(workbookDataStore)[0]);
+            loadingSpinner.style.display = 'none';
+        }
+
 
         function setActiveSheet(sheetName) {
             if (!workbookDataStore[sheetName]) return;
 
             Object.values(chartInstances).forEach(chart => chart.destroy());
             chartInstances = {};
+            activeFilters = [];
+            userKPIs = [];
+            userCharts = [];
+            if (filterBuilderContainer) filterBuilderContainer.innerHTML = '';
+            if (kpisContainer) kpisContainer.innerHTML = '';
+            if (chartsContainer) chartsContainer.innerHTML = '';
 
             currentSheetName = sheetName;
             const sheetInfo = workbookDataStore[sheetName];
+            
             fullOriginalData = sheetInfo.data;
-            allHeaders = sheetInfo.headers;
+            allHeaders = sheetInfo.headers; 
+            
+            headers = [...allHeaders];
+            originalData = [...fullOriginalData];
 
-            prepareDataAndShowTemplates();
+            initializeDashboard();
         }
         
-        function prepareDataAndShowTemplates() {
-            loadingStatusEl.textContent = `กำลังวิเคราะห์ชีต: ${currentSheetName}...`;
-            setTimeout(() => {
-                detectNumericHeaders();
-                convertNumericColumns();
-                if (dashboardView.classList.contains('d-none')) {
-                    generateAndShowTemplates();
-                } else {
-                    headers = [...allHeaders];
-                    originalData = [...fullOriginalData];
-                    initializeDashboard();
-                }
-            }, 10);
-        }
-
-        function detectNumericHeaders() {
-            const alwaysNumericColumns = ['Ttl_ Rev_', 'Rm Rev_', 'F&B Rev_', 'Extra Rev_', 'Non Rev_'];
-            numericHeaders = allHeaders.filter(h => {
-                const isForceNumeric = alwaysNumericColumns.some(pattern => 
-                    h.toLowerCase().includes(pattern.toLowerCase()) || 
-                    h.includes('Rev_') || h.includes('revenue') || h.includes('amount') ||
-                    h.includes('price') || h.includes('cost') || h.includes('total') ||
-                    h.includes('qty') || h.includes('quantity')
-                );
-                if (isForceNumeric) return true;
-                
-                const nonEmptyValues = fullOriginalData.filter(row => {
-                    const val = row[h];
-                    return val !== null && val !== undefined && val !== '' && String(val).trim() !== '';
-                }).map(row => row[h]);
-                
-                if (nonEmptyValues.length < 10) return false;
-                
-                const numericCount = nonEmptyValues.filter(val => {
-                    const strVal = String(val).trim();
-                    const cleanVal = strVal.replace(/[,\s฿$€£¥]/g, '').replace(/^\((.+)\)$/, '-$1');
-                    const numVal = parseFloat(cleanVal);
-                    return !isNaN(numVal) && isFinite(numVal) && /\d/.test(strVal);
-                }).length;
-                
-                return (numericCount / nonEmptyValues.length) >= 0.5;
-            });
-        }
-
-        function convertNumericColumns(data = fullOriginalData, headersToConvert = numericHeaders) {
-            data.forEach(row => {
-                headersToConvert.forEach(h => {
+        function convertNumericColumns() {
+            if (!numericHeaders || numericHeaders.length === 0) return;
+            fullOriginalData.forEach(row => {
+                numericHeaders.forEach(h => {
                     const val = row[h];
                     if (val !== null && val !== undefined && val !== '') {
                         const strVal = String(val).trim();
@@ -567,299 +1065,384 @@
                         if (!isNaN(numVal) && isFinite(numVal)) {
                             row[h] = numVal;
                         } else {
-                            const numberMatch = strVal.match(/[-+]?[\d,]+\.?\d*/);
-                            if (numberMatch) {
-                                const extractedNum = parseFloat(numberMatch[0].replace(/,/g, ''));
-                                row[h] = !isNaN(extractedNum) ? extractedNum : 0;
-                            } else {
-                                row[h] = 0;
-                            }
+                            row[h] = 0;
                         }
                     } else {
                         row[h] = 0;
                     }
                 });
             });
+            originalData = [...fullOriginalData];
         }
 
-
-        function showHeadeerSelectionModal() {
-            const listContainer = getEl('header-select-list');
-            listContainer.innerHTML = '';
-            const savedConfig = loadStateFromLocalStorage();
-            const savedHeaders = savedConfig ? savedConfig.headers : null;
-
-            allHeaders.forEach(header => {
-                const isChecked = savedHeaders ? savedHeaders.includes(header) : true;
-                const item = document.createElement('label');
-                item.className = 'list-group-item';
-                item.innerHTML = `<input class="form-check-input me-2" type="checkbox" value="${header}" ${isChecked ? 'checked' : ''}> ${header}`;
-                listContainer.appendChild(item);
-            });
-            loadingSpinner.style.display = 'none';
-            headerSelectModal.show();
-        }
-
-        function applyHeaderSelection() {
-            const selectedCheckboxes = getEl('header-select-list').querySelectorAll('input:checked');
-            let selectedHeaders = Array.from(selectedCheckboxes).map(cb => cb.value);
-            
-            headers = selectedHeaders.filter(h => allHeaders.includes(h));
-
-            if (headers.length === 0) {
-                alert('กรุณาเลือกอย่างน้อย 1 คอลัมน์');
-                return;
+        /**
+         * ลบแถวที่มีค่า null หรือ empty ทั้งแถว
+         */
+        function removeEmptyRows() {
+            try {
+                const initialCount = fullOriginalData.length;
+                
+                fullOriginalData = fullOriginalData.filter(row => {
+                    // ตรวจสอบว่าทุกคอลัมน์ในแถวนี้เป็น null, undefined, หรือ empty string หรือไม่
+                    const hasAnyValue = headers.some(header => {
+                        const value = row[header];
+                        return value !== null && 
+                               value !== undefined && 
+                               String(value).trim() !== '' &&
+                               String(value).trim() !== 'null' &&
+                               String(value).trim() !== 'NULL';
+                    });
+                    
+                    return hasAnyValue; // เก็บแถวที่มีค่าอย่างน้อย 1 คอลัมน์
+                });
+                
+                const removedCount = initialCount - fullOriginalData.length;
+                if (removedCount > 0) {
+                    console.log(`ลบแถวว่างออกไปแล้ว ${removedCount} แถว จาก ${initialCount} แถว`);
+                }
+                
+                originalData = [...fullOriginalData];
+                
+            } catch (error) {
+                console.error('Error in removeEmptyRows:', error);
             }
-            
-            headerSelectModal.hide();
-            loadingSpinner.style.display = 'block';
-            
-            originalData = fullOriginalData.map(fullRow => {
-                const newRow = {};
-                headers.forEach(h => { newRow[h] = fullRow[h]; });
-                return newRow;
+        }
+
+        function detectNumericHeaders() {
+            numericHeaders = allHeaders.filter(h => {
+                const nonEmptyValues = fullOriginalData.map(row => row[h]).filter(val => val !== null && val !== undefined && String(val).trim() !== '');
+                if (nonEmptyValues.length < 5) return false;
+                
+                const numericCount = nonEmptyValues.filter(val => {
+                    const strVal = String(val).trim();
+                    const cleanVal = strVal.replace(/[,\s฿$€£¥]/g, '').replace(/^\((.+)\)$/, '-$1');
+                    return !isNaN(parseFloat(cleanVal)) && isFinite(cleanVal);
+                }).length;
+                
+                return (numericCount / nonEmptyValues.length) >= 0.7;
             });
-
-            detectNumericHeaders();
-            convertNumericColumns(originalData, numericHeaders);
-
-            loadingSpinner.style.display = 'none';
-            initializeDashboard();
         }
         
-        // --- TEMPLATE ENGINE (UPGRADED) ---
-        function generateDashboardTemplates(allHeaders, numericHeaders) {
+        function generateDashboardTemplates(sheetName) {
+            const sheetInfo = workbookDataStore[sheetName];
+            const currentAllHeaders = sheetInfo.headers;
+            const currentNumericHeaders = currentAllHeaders.filter(h => {
+                 const nonEmptyValues = sheetInfo.data.map(row => row[h]).filter(val => val !== null && val !== undefined && String(val).trim() !== '');
+                if (nonEmptyValues.length < 5) return false;
+                const numericCount = nonEmptyValues.filter(val => {
+                    const strVal = String(val).trim();
+                    const cleanVal = strVal.replace(/[,\s฿$€£¥]/g, '').replace(/^\((.+)\)$/, '-$1');
+                    return !isNaN(parseFloat(cleanVal)) && isFinite(cleanVal);
+                }).length;
+                return (numericCount / nonEmptyValues.length) >= 0.7;
+            });
+
             const templates = [];
-            const lowerCaseHeaders = allHeaders.map(h => h.toLowerCase());
-
-            const findCol = (keywords) => allHeaders.find(h => keywords.some(k => h.toLowerCase().includes(k)));
-            const findCols = (keywords) => allHeaders.filter(h => keywords.some(k => h.toLowerCase().includes(k)));
-
-            // --- Define Keywords for different domains ---
-            const revenueKeywords = ['rev', 'revenue', 'income', 'sales', 'amount', 'price', 'value'];
-            const costKeywords = ['cost', 'expense'];
-            const dateKeywords = ['date', 'day', 'timestamp', 'period'];
-            const categoryKeywords = ['category', 'type', 'market', 'segment', 'group'];
-            const geoKeywords = ['country', 'city', 'province', 'region', 'area'];
-            const productKeywords = ['product', 'item', 'service', 'sku'];
-            const quantityKeywords = ['qty', 'quantity', 'units'];
-            const customerKeywords = ['customer', 'client', 'user', 'member'];
-            const employeeKeywords = ['employee', 'staff', 'personnel'];
-            const departmentKeywords = ['department', 'division', 'team'];
-            const salaryKeywords = ['salary', 'wage', 'payroll'];
-
-            // --- Template 1: Financial/Sales Analysis ---
-            const revenueCol = findCol(revenueKeywords);
-            const dateCol = findCol(dateKeywords);
-            const categoryCol = findCol(categoryKeywords);
-            if (revenueCol) {
-                const config = {
-                    headers: [dateCol, categoryCol, revenueCol, findCol(costKeywords), findCol(quantityKeywords)].filter(Boolean),
-                    userKPIs: [{ id: `kpi-tpl-1`, title: `ยอดขายรวม`, calculation: 'sum', column: revenueCol }],
-                    userCharts: []
-                };
-                if (dateCol) config.userCharts.push({ id: 'chart-tpl-1', title: 'ยอดขายตามเวลา', type: 'line', groupBy: dateCol, metric: revenueCol, aggregation: 'sum' });
-                if (categoryCol) config.userCharts.push({ id: 'chart-tpl-2', title: `ยอดขายตามหมวดหมู่`, type: 'bar', groupBy: categoryCol, metric: revenueCol, aggregation: 'sum' });
-                templates.push({ name: "วิเคราะห์ยอดขาย (Sales Analysis)", description: "ภาพรวมยอดขาย, แนวโน้มตามเวลา และแบ่งตามหมวดหมู่", config });
-            }
-
-            // --- Template 2: Product Performance ---
-            const productCol = findCol(productKeywords);
-            const quantityCol = findCol(quantityKeywords);
-            if (productCol && (quantityCol || revenueCol)) {
-                const metricCol = revenueCol || quantityCol;
-                const config = {
-                    headers: [productCol, categoryCol, quantityCol, revenueCol].filter(Boolean),
-                    userKPIs: [
-                        { id: `kpi-tpl-3`, title: `จำนวนสินค้า (SKU)`, calculation: 'uniqueCount', column: productCol },
-                        { id: `kpi-tpl-4`, title: `จำนวนชิ้นทั้งหมด`, calculation: 'sum', column: quantityCol }
-                    ].filter(kpi => kpi.column),
-                    userCharts: [{ id: 'chart-tpl-3', title: `Top 10 สินค้าขายดี`, type: 'bar', groupBy: productCol, metric: metricCol, aggregation: 'sum' }]
-                };
-                templates.push({ name: "วิเคราะห์ประสิทธิภาพสินค้า (Product Performance)", description: "ดูภาพรวมสินค้า, จำนวนที่ขาย และจัดอันดับสินค้าขายดี", config });
-            }
-
-            // --- Template 3: Geographic Analysis ---
-            const geoCol = findCol(geoKeywords);
-            if (geoCol && revenueCol) {
-                const config = {
-                    headers: [geoCol, revenueCol].filter(Boolean),
-                    userKPIs: [{ id: `kpi-tpl-5`, title: `จำนวนพื้นที่`, calculation: 'uniqueCount', column: geoCol }],
-                    userCharts: [{ id: 'chart-tpl-4', title: `ยอดขายตามพื้นที่`, type: 'pie', groupBy: geoCol, metric: revenueCol, aggregation: 'sum' }]
-                };
-                templates.push({ name: "วิเคราะห์เชิงภูมิศาสตร์ (Geographic Analysis)", description: "สรุปยอดขายหรือข้อมูลตามพื้นที่ทางภูมิศาสตร์", config });
-            }
-
-            // --- Template 4: HR / Employee Analysis ---
-            const employeeCol = findCol(employeeKeywords);
-            const departmentCol = findCol(departmentKeywords);
-            const salaryCol = findCol(salaryKeywords);
-            if (departmentCol && (employeeCol || salaryCol)) {
-                 const metricCol = salaryCol || employeeCol;
-                 const aggregation = salaryCol ? 'sum' : 'uniqueCount';
-                 const kpiTitle = salaryCol ? 'ค่าจ้างรวม' : 'จำนวนพนักงาน';
-                 const chartTitle = salaryCol ? 'ค่าจ้างรวมตามแผนก' : 'จำนวนพนักงานตามแผนก';
-                 
+            
+            if (currentAllHeaders.includes('department') && currentAllHeaders.includes('hotel') && currentAllHeaders.includes('value')) {
                  const config = {
-                    headers: [employeeCol, departmentCol, salaryCol].filter(Boolean),
+                    headers: ['department', 'hotel', 'type', 'period', 'value'],
                     userKPIs: [
-                        { id: `kpi-tpl-6`, title: `จำนวนแผนก`, calculation: 'uniqueCount', column: departmentCol },
-                        { id: `kpi-tpl-7`, title: kpiTitle, calculation: aggregation, column: metricCol }
+                        { id: `kpi-hr-1`, title: `พนักงานทั้งหมด`, calculation: 'sum', column: 'value' },
+                        { id: `kpi-hr-2`, title: `จำนวนแผนก`, calculation: 'uniqueCount', column: 'department' },
+                        { id: `kpi-hr-3`, title: `จำนวนโรงแรม`, calculation: 'uniqueCount', column: 'hotel' }
                     ],
-                    userCharts: [{ id: 'chart-tpl-5', title: chartTitle, type: 'bar', groupBy: departmentCol, metric: metricCol, aggregation: aggregation }]
+                    userCharts: [
+                        { id: 'chart-hr-1', title: 'จำนวนพนักงานตามแผนก', type: 'bar', groupBy: 'department', metric: 'value', aggregation: 'sum' },
+                        { id: 'chart-hr-2', title: 'จำนวนพนักงานตามโรงแรม', type: 'pie', groupBy: 'hotel', metric: 'value', aggregation: 'sum' }
+                    ]
                 };
-                templates.push({ name: "วิเคราะห์ข้อมูลบุคคล (HR Analysis)", description: "ภาพรวมพนักงานและค่าใช้จ่ายบุคลากรในแต่ละแผนก", config });
+                templates.push({ name: "วิเคราะห์ข้อมูลพนักงาน (HR Staffing)", description: "ภาพรวมจำนวนพนักงาน แยกตามแผนกและโรงแรม", config });
             }
 
-            // --- Template 5: General Exploration (Fallback) ---
-            if (templates.length === 0 && numericHeaders.length > 0 && allHeaders.length > numericHeaders.length) {
-                const firstCategoryCol = allHeaders.find(h => !numericHeaders.includes(h));
-                const firstNumericCol = numericHeaders[0];
-                const config = {
-                     headers: [firstCategoryCol, firstNumericCol, ...allHeaders.slice(0, 5)],
-                     userKPIs: [
-                        { id: 'kpi-tpl-8', title: 'จำนวนรายการทั้งหมด', calculation: 'count', column: null },
-                        { id: 'kpi-tpl-9', title: `ผลรวม ${firstNumericCol}`, calculation: 'sum', column: firstNumericCol },
-                     ],
-                     userCharts: [{ id: 'chart-tpl-6', title: `ผลรวม ${firstNumericCol} ตาม ${firstCategoryCol}`, type: 'bar', groupBy: firstCategoryCol, metric: firstNumericCol, aggregation: 'sum' }]
-                };
-                templates.push({ name: "สำรวจข้อมูลเบื้องต้น (General Exploration)", description: `นับจำนวนรายการและดูผลรวมของ ${firstNumericCol} ตาม ${firstCategoryCol}`, config });
+            if (currentNumericHeaders.length > 0 && currentAllHeaders.length > currentNumericHeaders.length) {
+                const firstCategoryCol = currentAllHeaders.find(h => !currentNumericHeaders.includes(h));
+                const firstNumericCol = currentNumericHeaders[0];
+                if (firstCategoryCol && firstNumericCol) {
+                    const config = {
+                         headers: currentAllHeaders,
+                         userKPIs: [
+                            { id: 'kpi-gen-1', title: 'จำนวนรายการทั้งหมด', calculation: 'count', column: null },
+                            { id: 'kpi-gen-2', title: `ผลรวม ${firstNumericCol}`, calculation: 'sum', column: firstNumericCol },
+                         ],
+                         userCharts: [{ id: 'chart-gen-1', title: `ผลรวม ${firstNumericCol} ตาม ${firstCategoryCol}`, type: 'bar', groupBy: firstCategoryCol, metric: firstNumericCol, aggregation: 'sum' }]
+                    };
+                    templates.push({ name: "สำรวจข้อมูลเบื้องต้น (General Exploration)", description: `นับจำนวนรายการและดูผลรวมของ ${firstNumericCol} ตาม ${firstCategoryCol}`, config });
+                }
             }
 
             return templates;
         }
 
         function generateAndShowTemplates() {
-            const templates = generateDashboardTemplates(allHeaders, numericHeaders);
-            const container = getEl('template-card-container');
-            container.innerHTML = '';
-
-            if (templates.length === 0) {
-                showHeadeerSelectionModal();
-                return;
-            }
-
-            templates.forEach((template, index) => {
-                const cardWrapper = document.createElement('div');
-                cardWrapper.className = 'col-md-6';
-                
-                const card = document.createElement('div');
-                card.className = 'card h-100 template-card border';
-                card.onclick = () => applyTemplateAndInitialize(template.config);
-                
-                const firstChartConfig = template.config.userCharts?.[0];
-                const previewCanvasId = firstChartConfig ? `preview-${firstChartConfig.id}` : `preview-empty-${index}`;
-
-                card.innerHTML = `
-                    <div class="chart-preview-container bg-light p-2 rounded-top">
-                        <canvas id="${previewCanvasId}"></canvas>
-                    </div>
-                    <div class="card-body">
-                        <h5 class="card-title text-primary">${template.name}</h5>
-                        <p class="card-text text-muted small">${template.description}</p>
-                    </div>
-                `;
-                cardWrapper.appendChild(card);
-                container.appendChild(cardWrapper);
-            });
-            
-            templates.forEach((template, index) => {
-                const firstChartConfig = template.config.userCharts?.[0];
-                if (firstChartConfig) {
-                    const previewCanvasId = `preview-${firstChartConfig.id}`;
-                    renderPreviewChart(firstChartConfig, previewCanvasId);
+            try {
+                if (!workbookDataStore || typeof workbookDataStore !== 'object' || Object.keys(workbookDataStore).length === 0) {
+                    throw new Error("ไม่มีข้อมูล workbook ที่จะสร้าง template");
                 }
-            });
 
-            loadingSpinner.style.display = 'none';
-            templateSelectModal.show();
+                const firstSheetName = Object.keys(workbookDataStore)[0];
+                if (!firstSheetName) {
+                    throw new Error("ไม่พบ sheet name ใน workbook data");
+                }
+
+                const templates = generateDashboardTemplates(firstSheetName);
+                const container = getEl('template-card-container');
+                
+                if (!container) {
+                    throw new Error("ไม่พบ template container element");
+                }
+                
+                container.innerHTML = '';
+
+                if (!templates || !Array.isArray(templates) || templates.length === 0) {
+                    console.warn("ไม่พบ templates ที่เหมาะสม - เริ่มกระบวนการ header configuration");
+                    startHeaderConfigurationFlow(Object.keys(workbookDataStore));
+                    return;
+                }
+
+                // สร้าง template cards
+                templates.forEach((template, index) => {
+                    try {
+                        if (!template || typeof template !== 'object') {
+                            console.warn(`Template at index ${index} is invalid:`, template);
+                            return;
+                        }
+
+                        const cardWrapper = document.createElement('div');
+                        cardWrapper.className = 'col-md-6';
+                        
+                        const card = document.createElement('div');
+                        card.className = 'card h-100 template-card border';
+                        card.onclick = () => applyTemplateAndInitialize(template.config, firstSheetName);
+                        
+                        const firstChartConfig = template.config?.userCharts?.[0];
+                        const previewCanvasId = firstChartConfig ? `preview-${firstChartConfig.id}` : `preview-empty-${index}`;
+
+                        card.innerHTML = `
+                            <div class="chart-preview-container bg-light p-2 rounded-top">
+                                <canvas id="${previewCanvasId}"></canvas>
+                            </div>
+                            <div class="card-body">
+                                <h5 class="card-title text-primary">${template.name || 'Unnamed Template'}</h5>
+                                <p class="card-text text-muted small">${template.description || 'No description available'}</p>
+                            </div>
+                        `;
+                        cardWrapper.appendChild(card);
+                        container.appendChild(cardWrapper);
+                    } catch (error) {
+                        console.error(`Error creating template card ${index}:`, error);
+                    }
+                });
+                
+                // สร้าง preview charts
+                templates.forEach((template, index) => {
+                    try {
+                        const firstChartConfig = template.config?.userCharts?.[0];
+                        if (firstChartConfig) {
+                            const previewCanvasId = `preview-${firstChartConfig.id}`;
+                            renderPreviewChart(firstChartConfig, previewCanvasId, firstSheetName);
+                        }
+                    } catch (error) {
+                        console.error(`Error rendering preview chart for template ${index}:`, error);
+                    }
+                });
+
+                loadingSpinner.style.display = 'none';
+                
+                if (!templateSelectModal) {
+                    throw new Error("templateSelectModal ไม่ได้ถูก initialized");
+                }
+                
+                templateSelectModal.show();
+                
+            } catch (error) {
+                console.error('Error in generateAndShowTemplates:', error);
+                loadingSpinner.style.display = 'none';
+                uploadErrorEl.textContent = `เกิดข้อผิดพลาดในการสร้าง template: ${error.message}`;
+                throw error;
+            }
         }
 
-        function renderPreviewChart(config, canvasId) {
-            const data = fullOriginalData;
-            let chartData;
-
-            if (!config.groupBy || !data || data.length === 0) return;
-            
-            const aggregation = config.aggregation || 'sum';
-            const metric = config.metric;
-
-            if (aggregation === 'count' || aggregation === 'uniqueCount') {
-                 const counts = data.reduce((acc, row) => {
-                    const key = row[config.groupBy] || 'N/A';
-                    if (!acc[key]) acc[key] = new Set();
-                    if (aggregation === 'uniqueCount') acc[key].add(row[metric]);
-                    else acc[key].add(row[config.groupBy]); // Just count occurrences
-                    return acc;
-                }, {});
-                chartData = { labels: Object.keys(counts), values: Object.values(counts).map(s => s.size) };
-            } else { // sum, average
-                if (!metric || !numericHeaders.includes(metric)) return;
-                const metrics = data.reduce((acc, row) => {
-                    const key = row[config.groupBy] || 'N/A';
-                    if (!acc[key]) acc[key] = { sum: 0, count: 0 };
-                    acc[key].sum += row[metric] || 0;
-                    acc[key].count += 1;
-                    return acc;
-                }, {});
-                chartData = {
-                    labels: Object.keys(metrics),
-                    values: Object.values(metrics).map(m => aggregation === 'sum' ? m.sum : (m.sum / m.count))
-                };
-            }
-
-            const maxPreviewPoints = 10;
-            if (chartData.labels.length > maxPreviewPoints) {
-                const combined = chartData.labels.map((label, i) => ({ label, value: chartData.values[i] }));
-                combined.sort((a, b) => b.value - a.value);
-                chartData.labels = combined.slice(0, maxPreviewPoints).map(d => d.label);
-                chartData.values = combined.slice(0, maxPreviewPoints).map(d => d.value);
-            }
-
-            const ctx = getEl(canvasId)?.getContext('2d');
-            if (!ctx) return;
-
-            if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
-
-            chartInstances[canvasId] = new Chart(ctx, {
-                type: config.type,
-                data: {
-                    labels: chartData.labels,
-                    datasets: [{
-                        data: chartData.values,
-                        backgroundColor: config.type === 'line' ? 'rgba(0, 123, 255, 0.1)' : ['#0d6efd', '#6c757d', '#198754', '#ffc107', '#dc3545', '#0dcaf0', '#fd7e14'],
-                        borderColor: '#0d6efd',
-                        borderWidth: 2,
-                        pointRadius: 0,
-                        fill: config.type === 'line'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false }, tooltip: { enabled: false }, datalabels: { display: false } },
-                    scales: { x: { display: false }, y: { display: false } }
+        function renderPreviewChart(config, canvasId, sheetName) {
+            try {
+                if (!config || typeof config !== 'object') {
+                    throw new Error("Chart config ไม่ถูกต้อง");
                 }
-            });
+
+                if (!canvasId || typeof canvasId !== 'string') {
+                    throw new Error("Canvas ID ไม่ถูกต้อง");
+                }
+
+                if (!sheetName || !workbookDataStore[sheetName]) {
+                    throw new Error(`ไม่พบข้อมูลสำหรับ sheet: ${sheetName}`);
+                }
+
+                const data = workbookDataStore[sheetName].data;
+                if (!data || !Array.isArray(data) || data.length === 0) {
+                    console.warn(`ไม่มีข้อมูลสำหรับ preview chart ใน sheet: ${sheetName}`);
+                    return;
+                }
+
+                if (!config.groupBy) {
+                    console.warn("ไม่ได้ระบุ groupBy สำหรับ chart");
+                    return;
+                }
+
+                let chartData;
+                const aggregation = config.aggregation || 'sum';
+                const metric = config.metric;
+
+                try {
+                    if (aggregation === 'count' || aggregation === 'uniqueCount') {
+                        const counts = data.reduce((acc, row) => {
+                            try {
+                                const key = row[config.groupBy] || 'N/A';
+                                if (!acc[key]) acc[key] = new Set();
+                                if (aggregation === 'uniqueCount') acc[key].add(row[metric]);
+                                else acc[key].add(row[config.groupBy]);
+                                return acc;
+                            } catch (error) {
+                                console.warn('Error processing row for count aggregation:', error);
+                                return acc;
+                            }
+                        }, {});
+                        chartData = { 
+                            labels: Object.keys(counts), 
+                            values: Object.values(counts).map(s => s.size) 
+                        };
+                    } else { 
+                        const metrics = data.reduce((acc, row) => {
+                            try {
+                                const key = row[config.groupBy] || 'N/A';
+                                if (!acc[key]) acc[key] = { sum: 0, count: 0 };
+                                const value = parseFloat(row[metric] || 0);
+                                if (!isNaN(value) && isFinite(value)) {
+                                    acc[key].sum += value;
+                                    acc[key].count += 1;
+                                }
+                                return acc;
+                            } catch (error) {
+                                console.warn('Error processing row for numeric aggregation:', error);
+                                return acc;
+                            }
+                        }, {});
+                        
+                        chartData = {
+                            labels: Object.keys(metrics),
+                            values: Object.values(metrics).map(m => {
+                                if (m.count === 0) return 0;
+                                return aggregation === 'sum' ? m.sum : (m.sum / m.count);
+                            })
+                        };
+                    }
+                } catch (error) {
+                    throw new Error(`Error aggregating data: ${error.message}`);
+                }
+
+                if (!chartData.labels || chartData.labels.length === 0) {
+                    console.warn("ไม่มีข้อมูลสำหรับ chart หลังจาก aggregation");
+                    return;
+                }
+
+                // จำกัดจำนวนจุดข้อมูลสำหรับ preview
+                const maxPreviewPoints = 10;
+                if (chartData.labels.length > maxPreviewPoints) {
+                    try {
+                        const combined = chartData.labels.map((label, i) => ({ 
+                            label, 
+                            value: chartData.values[i] || 0 
+                        }));
+                        combined.sort((a, b) => b.value - a.value);
+                        chartData.labels = combined.slice(0, maxPreviewPoints).map(d => d.label);
+                        chartData.values = combined.slice(0, maxPreviewPoints).map(d => d.value);
+                    } catch (error) {
+                        console.warn('Error limiting preview data points:', error);
+                    }
+                }
+
+                const canvas = getEl(canvasId);
+                if (!canvas) {
+                    console.warn(`ไม่พบ canvas element: ${canvasId}`);
+                    return;
+                }
+
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    console.warn(`ไม่สามารถสร้าง 2d context สำหรับ canvas: ${canvasId}`);
+                    return;
+                }
+
+                // ทำลาย chart instance เก่าถ้ามี
+                if (chartInstances[canvasId]) {
+                    try {
+                        chartInstances[canvasId].destroy();
+                    } catch (error) {
+                        console.warn('Error destroying existing chart:', error);
+                    }
+                }
+
+                chartInstances[canvasId] = new Chart(ctx, {
+                    type: config.type || 'bar',
+                    data: {
+                        labels: chartData.labels,
+                        datasets: [{
+                            data: chartData.values,
+                            backgroundColor: config.type === 'line' ? 'rgba(0, 123, 255, 0.1)' : ['#0d6efd', '#6c757d', '#198754', '#ffc107', '#dc3545', '#0dcaf0', '#fd7e14'],
+                            borderColor: '#0d6efd',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: config.type === 'line'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { 
+                            legend: { display: false }, 
+                            tooltip: { enabled: false }, 
+                            datalabels: { display: false } 
+                        },
+                        scales: { 
+                            x: { display: false }, 
+                            y: { display: false } 
+                        }
+                    }
+                });
+
+            } catch (error) {
+                console.error(`Error in renderPreviewChart for canvas ${canvasId}:`, error);
+            }
         }
 
-        function applyTemplateAndInitialize(config) {
+        function applyTemplateAndInitialize(config, sheetName) {
             templateSelectModal.hide();
             loadingSpinner.style.display = 'block';
 
-            headers = [...new Set(config.headers)];
+            const firstSheetInfo = workbookDataStore[sheetName];
+            firstSheetInfo.selectedHeaders = [...new Set(config.headers)];
+            firstSheetInfo.data = firstSheetInfo.data.map(fullRow => {
+                const newRow = {};
+                firstSheetInfo.selectedHeaders.forEach(h => { newRow[h] = fullRow[h]; });
+                return newRow;
+            });
+            firstSheetInfo.headers = firstSheetInfo.selectedHeaders;
+
+            Object.keys(workbookDataStore).forEach(sName => {
+                if (sName !== sheetName) {
+                    const otherSheetInfo = workbookDataStore[sName];
+                    otherSheetInfo.selectedHeaders = otherSheetInfo.headers;
+                }
+            });
+
+            setActiveSheet(sheetName);
+            
             userKPIs = config.userKPIs || [];
             userCharts = config.userCharts || [];
             activeFilters = config.activeFilters || [];
-
-            originalData = fullOriginalData.map(fullRow => {
-                const newRow = {};
-                headers.forEach(h => { newRow[h] = fullRow[h]; });
-                return newRow;
-            });
+            
+            applyFiltersAndRender();
             
             loadingSpinner.style.display = 'none';
-            initializeDashboard();
         }
 
         function renderSheetSwitcher() {
@@ -867,35 +1450,25 @@
             container.innerHTML = '';
             const sheetNames = Object.keys(workbookDataStore);
 
-            if (sheetNames.length <= 1) {
-                container.innerHTML = `<p class="text-muted small mt-1">ชีตที่แสดงผล: ${currentSheetName}</p>`;
-                return;
+            if (sheetNames.length > 1) {
+                const switcherGroup = document.createElement('div');
+                switcherGroup.className = 'btn-group btn-group-sm mt-2';
+                switcherGroup.setAttribute('role', 'group');
+                
+                sheetNames.forEach(name => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = `btn ${name === currentSheetName ? 'btn-primary' : 'btn-outline-primary'}`;
+                    button.textContent = name;
+                    button.onclick = () => {
+                        if (name !== currentSheetName) {
+                            setActiveSheet(name);
+                        }
+                    };
+                    switcherGroup.appendChild(button);
+                });
+                container.appendChild(switcherGroup);
             }
-
-            const wrapper = document.createElement('div');
-            wrapper.className = 'd-flex align-items-center gap-2';
-            wrapper.innerHTML = `<label for="sheet-switcher" class="form-label mb-0 small text-muted">เลือกชีตที่แสดงผล:</label>`;
-            
-            const select = document.createElement('select');
-            select.id = 'sheet-switcher';
-            select.className = 'form-select form-select-sm w-auto';
-
-            sheetNames.forEach(name => {
-                const option = document.createElement('option');
-                option.value = name;
-                option.textContent = name;
-                if (name === currentSheetName) {
-                    option.selected = true;
-                }
-                select.appendChild(option);
-            });
-
-            select.addEventListener('change', (e) => {
-                setActiveSheet(e.target.value);
-            });
-
-            wrapper.appendChild(select);
-            container.appendChild(wrapper);
         }
 
         function initializeDashboard() {
@@ -904,11 +1477,16 @@
             dashboardView.classList.remove('d-none');
             
             renderSheetSwitcher();
+            
+            detectNumericHeaders();
+            removeEmptyRows(); // ลบแถวว่างก่อนประมวลผลข้อมูล
+            convertNumericColumns();
 
             sortKey = headers.length > 0 ? headers[0] : '';
             renderTableHeader();
 
             const savedConfig = loadStateFromLocalStorage();
+            
             const headersMatch = savedConfig && savedConfig.headers && savedConfig.headers.every(h => headers.includes(h)) && savedConfig.headers.length === headers.length;
 
             if (headersMatch) {
@@ -918,18 +1496,42 @@
             }
         }
 
-        // --- TABLE RENDERING ---
         function renderTableHeader() {
             tableHeaderEl.innerHTML = '';
             const tr = document.createElement('tr');
             tr.className = 'main-header-row';
-            headers.forEach(header => {
+            
+            headers.forEach((header, colIndex) => {
                 const th = document.createElement('th');
-                th.className = 'p-3 sortable-header';
+                th.className = 'p-1 sortable-header';
                 th.dataset.sortKey = header;
                 th.textContent = header;
+                
+                // ใช้ styling แบบ Excel เสมอ
+                th.style.cssText = `
+                    cursor: pointer; 
+                    position: relative; 
+                    background-color: #f6f8fa; 
+                    font-weight: 600; 
+                    border: 1px solid #d0d7de;
+                    text-align: center;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    font-size: 13px;
+                `;
+                
+                // เพิ่ม hover effect
+                th.addEventListener('mouseenter', () => {
+                    th.style.backgroundColor = '#e9ecef';
+                });
+                th.addEventListener('mouseleave', () => {
+                    th.style.backgroundColor = '#f6f8fa';
+                });
+                
                 tr.appendChild(th);
             });
+            
             tableHeaderEl.appendChild(tr);
             updateSortIndicators();
         }
@@ -948,7 +1550,7 @@
                 th.className = 'p-3';
                 if (numericHeaders.includes(header)) {
                     const total = filteredData.reduce((sum, row) => sum + (row[header] || 0), 0);
-                    th.textContent = total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    th.textContent = total.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
                     th.classList.add('text-end');
                 } else {
                     if (!hasPlacedTotalLabel) {
@@ -975,23 +1577,41 @@
             const end = start + rowsPerPage;
             const paginatedItems = filteredData.slice(start, end);
 
-            paginatedItems.forEach((row) => {
+            // ใช้รูปแบบ Excel เสมอ (ไม่ต้องอิงจาก Excel data จริง)
+            paginatedItems.forEach((row, rowIndex) => {
                 const tr = document.createElement('tr');
-                headers.forEach(header => {
+                
+                headers.forEach((header, colIndex) => {
                     const td = document.createElement('td');
-                    td.className = 'p-3';
+                    td.className = 'p-1';
                     const value = row[header];
                     
+                    // จัดรูปแบบตามประเภทข้อมูล
                     if (typeof value === 'number' && numericHeaders.includes(header)) {
-                        td.textContent = value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                        td.classList.add('text-end');
+                        td.textContent = value.toLocaleString('th-TH');
+                        td.classList.add('text-end', 'excel-number');
+                        td.style.fontFamily = 'Consolas, Monaco, "Lucida Console", monospace';
+                    } else if (value instanceof Date) {
+                        td.textContent = value.toLocaleDateString('th-TH');
+                        td.classList.add('text-center', 'excel-date');
                     } else {
                         td.textContent = String(value === undefined || value === null ? '' : value);
+                        td.classList.add('excel-text');
                     }
+                    
+                    // เพิ่ม hover effect
+                    td.addEventListener('mouseenter', () => {
+                        td.style.backgroundColor = '#f1f8ff';
+                    });
+                    td.addEventListener('mouseleave', () => {
+                        td.style.backgroundColor = '';
+                    });
+                    
                     tr.appendChild(td);
                 });
                 tableBodyEl.appendChild(tr);
             });
+            
             renderPaginationControls(filteredData.length, totalPages);
         }
 
@@ -1026,7 +1646,6 @@
             paginationControls.append(wrapper);
         }
 
-        // --- FILTERING & SORTING ---
         function applyFiltersAndRender() {
             let data = [...originalData];
             activeFilters.forEach(filter => {
@@ -1089,7 +1708,6 @@
             });
         }
 
-        // --- KPI ---
         function openCreateKpiModal() {
             getEl('create-kpi-form').reset();
             const calcSelect = getEl('kpi-calculation');
@@ -1148,7 +1766,6 @@
             kpisContainer.querySelectorAll('[data-kpi-id]').forEach(btn => btn.addEventListener('click', (e) => { userKPIs = userKPIs.filter(k => k.id !== e.currentTarget.dataset.kpiId); saveStateToLocalStorage(); renderAllKpis(); }));
         }
 
-        // --- CHARTS ---
         function openCreateChartModal() {
             getEl('create-chart-form').reset();
             const groupBySelect = getEl('chart-group-by');
@@ -1234,7 +1851,6 @@
             });
         }
         
-        // --- SAVE/LOAD CONFIGURATION ---
         function getConfigurationObject() { return { headers, userKPIs, userCharts, activeFilters }; }
         function applyConfiguration(config) {
             userKPIs = config.userKPIs || [];
@@ -1263,7 +1879,8 @@
                         headers = config.headers.filter(h => allHeaders.includes(h));
                         if (headers.length === 0) { alert('ไฟล์การตั้งค่าไม่มีคอลัมน์ที่ตรงกับข้อมูลปัจจุบัน'); return; }
                         originalData = fullOriginalData.map(fullRow => { const newRow = {}; headers.forEach(h => { newRow[h] = fullRow[h]; }); return newRow; });
-                        detectNumericHeaders(); convertNumericColumns(originalData, numericHeaders);
+                        detectNumericHeaders();
+                        convertNumericColumns();
                         renderTableHeader(); applyConfiguration(config); saveStateToLocalStorage();
                         alert('นำเข้าการตั้งค่าสำเร็จ');
                     } else { alert('ไฟล์การตั้งค่าไม่ถูกต้อง'); }
@@ -1272,7 +1889,6 @@
             reader.readAsText(file); event.target.value = '';
         }
 
-        // --- EXPORT ---
         function exportTableToCSV() {
             if (filteredData.length === 0) { alert("ไม่มีข้อมูลให้ส่งออก"); return; }
             const escapeCSV = (value) => { const str = String(value ?? ''); if (str.includes(',') || str.includes('"') || str.includes('\n')) return `"${str.replace(/"/g, '""')}"`; return str; };
@@ -1299,13 +1915,12 @@
             finally { actions.style.visibility = 'visible'; pdfButton.disabled = false; pdfButton.innerHTML = originalButtonText; }
         }
 
-        // --- INITIALIZATION ---
         function init() {
             Chart.register(ChartDataLabels);
             Chart.defaults.font.family = "'Sarabun', sans-serif";
 
             sheetSelectModal = new bootstrap.Modal(getEl('sheet-select-modal'));
-            headerSelectModal = new bootstrap.Modal(getEl('header-select-modal'));
+            headerConfigModal = new bootstrap.Modal(getEl('header-config-modal'));
             kpiModal = new bootstrap.Modal(getEl('kpi-modal'));
             createChartModal = new bootstrap.Modal(getEl('create-chart-modal'));
             templateSelectModal = new bootstrap.Modal(getEl('template-select-modal'));
@@ -1319,9 +1934,7 @@
             getEl('save-kpi-button').addEventListener('click', saveKpi);
             getEl('create-chart-btn').addEventListener('click', openCreateChartModal);
             getEl('save-chart-button').addEventListener('click', saveChart);
-            getEl('apply-header-select-button').addEventListener('click', applyHeaderSelection);
-            getEl('rows-per-page-select').addEventListener('change', (e) => { rowsPerPage = parseInt(e.target.value, 10); currentPage = 1; renderTableBody(); });
-
+            
             getEl('process-selected-sheets-btn').addEventListener('click', () => {
                 const selectedSheets = Array.from(getEl('sheet-list').querySelectorAll('input:checked')).map(cb => cb.value);
                 if (selectedSheets.length === 0) {
@@ -1331,14 +1944,35 @@
                 processAndStoreSheets(selectedSheets);
             });
 
+            getEl('next-header-config-btn').addEventListener('click', processCurrentSheetConfiguration);
+            
             getEl('start-from-scratch-button').addEventListener('click', () => {
                 templateSelectModal.hide();
-                showHeadeerSelectionModal();
+                startHeaderConfigurationFlow(Object.keys(workbookDataStore));
             });
 
             getEl('save-config-btn').addEventListener('click', saveConfigToFile);
             getEl('load-config-btn').addEventListener('click', () => getEl('load-config-input').click());
             getEl('load-config-input').addEventListener('change', loadConfigFromFile);
+            
+            // Toggle Excel format mode
+            getEl('toggle-excel-format-btn').addEventListener('click', (e) => {
+                e.preventDefault();
+                isExcelFormatEnabled = !isExcelFormatEnabled;
+                const statusElement = getEl('excel-format-status');
+                if (isExcelFormatEnabled) {
+                    statusElement.textContent = 'เปิด';
+                    statusElement.className = 'badge bg-success ms-2';
+                } else {
+                    statusElement.textContent = 'ปิด';
+                    statusElement.className = 'badge bg-secondary ms-2';
+                }
+                // รีเฟรช table ใหม่
+                if (filteredData && filteredData.length > 0) {
+                    renderTableHeader();
+                    renderTableBody();
+                }
+            });
             getEl('clear-storage-btn').addEventListener('click', clearLocalStorage);
             getEl('export-csv-btn').addEventListener('click', exportTableToCSV);
             getEl('export-pdf-btn').addEventListener('click', exportDashboardToPDF);
